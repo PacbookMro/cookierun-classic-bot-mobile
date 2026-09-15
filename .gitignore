@@ -4,4 +4,5 @@ dist/
 __pycache__/
 .DS_Store
 templates/debug_*.png
+templates/debug_*.txt
 templates/temp_card_*.png

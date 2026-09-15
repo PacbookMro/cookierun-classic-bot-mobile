@@ -1,29 +1,33 @@
-# Phone test checklist
+# Phone test checklist — mobile.2
 
-## First run
+## Calibration
 
-1. Extract the release ZIP; open `main.lua` in AnkuLua 8.2+.
-2. Open the game main menu in landscape. Keep Calibration only enabled.
-3. Check the game-area outline and Start marker. No game button should be pressed.
-4. Record the printed X/Y/width/height and calibration stage. Expect `MAINMENU` when on the normal main menu.
-5. Open the purchase/items screen manually, then run calibration again. Check Play and Random boost markers; expect `PURCHASE_ITEM`.
-6. If necessary, correct the navigation-bar setting or specify the actual 16:9 game rectangle in physical screenshot pixels.
+1. Extract the new release into a fresh folder and open that folder's `main.lua` in AnkuLua 8.2+.
+2. Open the game main menu in landscape. Leave Legacy crop off and Calibration only on.
+3. The outer highlight should cover the game including its side artwork. The Main menu: Play marker should stay on Play. No game button should be pressed.
+4. Record the printed physical game area, logical canvas, UI offsets, and calibration stage. Expect `MAINMENU` on the normal main menu.
+5. Open the item/buff screen manually, then run calibration again. Check its Play and Random boost markers. Expect `PURCHASE_ITEM` if the bundled label is present and recognizable.
+6. Match the navigation-bar and cutout settings to the game. For a Samsung split-screen/pop-up window, enter its actual landscape client rectangle as manual X/Y/width/height in physical screenshot pixels. Arbitrary landscape ratios are accepted.
 
 ## Two-round check
 
 1. Return to the main menu and uncheck Calibration only.
-2. Select Simple mode, one random boost, and a five-minute interval.
-3. Watch the first round: Start → buy boost → Play → results → main menu.
-4. Confirm one purchase per round, correct taps, and a second round after at least five minutes from the first Play. Runs longer than five minutes finish before restarting.
-5. Stop with AnkuLua's Stop control.
+2. Start with buffs unchecked to isolate screen transitions. Then test with Simple mode, one random boost, and a five-minute interval.
+3. Watch main menu Play → item screen Play → run → results → main menu.
+4. Confirm one purchase per round and a second round after at least five minutes from the first run Play. Longer runs finish normally.
+5. Stop using AnkuLua's Stop control. Recalibrate if the window moves, resizes, rotates, or switches fullscreen mode.
 
-## Useful reports
+## If it gets lost
 
-- Phone model, Android version, landscape screenshot resolution, and AnkuLua version.
-- Whether the game uses black bars, fullscreen controls, a cutout, or a visible navigation bar.
-- The printed game rectangle and any manual values.
-- Full landscape screenshot plus `templates/debug_screen_<timestamp>.png` from calibration. The latter is a grayscale crop in the bot's reference coordinate space.
-- Which marker is off and whether the error is a constant shift, a size difference, or controls moving independently.
-- Exact error/log text if the script stops.
+After three seconds without a match, the bot widens the search for the expected stages. After ten seconds, it checks all stage types over the entire game area. After twenty seconds, it saves:
 
-No physical devices have been verified for this first mobile release. Automated tests cover geometry for 960×540, 1280×720, 1920×1080, 2560×1440, 2160×1080, 2340×1080, 2400×1080, 3200×1440, and 2048×1536, plus inset examples. These are simulated sizes, not a list of certified phones.
+- `templates/debug_unrecognized.png`: full logical game-area screenshot, including sides.
+- `templates/debug_unrecognized.txt`: dimensions, UI offsets, detection group, last recognized stage, and last action.
+
+These files overwrite previous stall diagnostics. A gameplay screen can legitimately have no menu match; saving does not stop the bot.
+
+Share those two files, a full screenshot after the initial Play tap with overlays dismissed, the exact log/error, phone model, AnkuLua version, and window mode. Explain whether it stopped on the items screen, during a run, or at results. The main-menu calibration image alone is insufficient to diagnose the post-Play screen.
+
+## Validation limits
+
+The first phone report confirms the initial Play tap works but reports a later stall. It includes a 2400×1080 main-menu calibration screenshot. The post-Play screen was not supplied with that report. Automated tests simulate the original and wider layouts; this release still needs testing on the actual phone.

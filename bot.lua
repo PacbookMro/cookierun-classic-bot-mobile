@@ -4,6 +4,8 @@ local actions = require("actions")
 local config = require("config")
 local cycle = require("cycle")
 local detection = require("detection")
+local recovery = require("recovery")
+local diagnostics = require("diagnostics")
 
 local BOOST_CHOICES = {
     { "Double Coins", config.BOOST_DOUBLE_COINS_TEMPLATE },
@@ -139,7 +141,8 @@ local function main()
     local round = cycle.new(options.round_interval)
     local detection_group = "PRE_GAME"
     --local detection_group = "IN_GAME"
-    local last_detected_time = os.time()
+    local recovery_state = recovery.new(os.time())
+    local last_recognized_stage = nil
     local last_lives_time = os.time()
     local lives_interval = random_uniform(25 * 60, 35 * 60)
 
@@ -148,15 +151,21 @@ local function main()
         usePreviousSnap(false)
 
         if stage == nil then
-            local recovery_interval = config.DETECTION_RECOVERY_SCAN_INTERVAL[detection_group] or 5
-            if (os.time() - last_detected_time) >= recovery_interval then
-                stage = detection.detect_stage(nil, relic_exclude)
-                last_detected_time = os.time()
+            local scan = recovery_state:poll(os.time(), config.WIDE_SCAN_INTERVAL,
+                config.DETECTION_RECOVERY_SCAN_INTERVAL[detection_group], config.STALL_DIAGNOSTIC_SECONDS)
+            if scan.all then
+                stage = detection.detect_stage(nil, relic_exclude, true)
+            elseif scan.wide then
+                stage = detection.detect_stage(get_detection_stage_names(detection_group, relic_exclude), nil, true)
             end
-            print("stage == nil")
-        else
-            last_detected_time = os.time()
-            print(" stage = " .. stage)
+            if not stage and scan.diagnostic then
+                diagnostics.save_unrecognized(detection_group, last_recognized_stage, scan.elapsed)
+            end
+        end
+        if stage then
+            recovery_state:detected(os.time())
+            last_recognized_stage = stage
+            print("Detected stage: " .. stage)
         end
 
         if stage == last_stage then
@@ -183,10 +192,12 @@ local function main()
                         sleep(delay)
                     end
                     -- The screen may have changed during the wait.
-                    if detection.detect_stage({"MAINMENU"}) == "MAINMENU" then
+                    if detection.detect_stage({"MAINMENU"}, nil, true) == "MAINMENU" then
                         actions.start_game()
                         round:prepare()
                         detection_group = "PRE_GAME"
+                        recovery_state:detected(os.time())
+                        print("Play tapped; looking for the item/buff screen.")
                     end
                     last_stage = nil
                 end
@@ -204,6 +215,8 @@ local function main()
                 end
                 actions.play_game()
                 round:started(os.time())
+                recovery_state:detected(os.time())
+                print("Run Play tapped; waiting for run/result screens. Quiet detection during a run is normal.")
                 detection_group = "IN_GAME"
                 sleep(0.2)
                 last_stage = nil

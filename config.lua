@@ -4,6 +4,9 @@ local config = {}
 -- -------------------
 config.TEMPLATE_DIR = "templates"
 config.MATCH_THRESHOLD = 0.7
+config.WIDE_MATCH_THRESHOLD = 0.85
+config.WIDE_SCAN_INTERVAL = 3
+config.STALL_DIAGNOSTIC_SECONDS = 20
 
 -- -------------------
 -- STAGE DETECTION TEMPLATES
@@ -218,9 +221,9 @@ config.DETECTION_GROUPS = {
 }
 
 config.DETECTION_RECOVERY_SCAN_INTERVAL = {
-    PRE_GAME = 60.0,  -- seconds
-    IN_GAME = 300.0,  -- seconds
-    POST_GAME = 30.0,  -- seconds
+    PRE_GAME = 10.0,  -- seconds
+    IN_GAME = 10.0,  -- seconds
+    POST_GAME = 10.0,  -- seconds
 }
 
 -- -------------------

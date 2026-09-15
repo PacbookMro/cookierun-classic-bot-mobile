@@ -27,35 +27,42 @@ function regionMethods:getW() return self.w end
 function regionMethods:getH() return self.h end
 function regionMethods:getScore() return 0.95 end
 function regionMethods:highlight() end
+function regionMethods:highlightOff() end
 function regionMethods:save(name) saves[#saves + 1] = name end
 function regionMethods:exists(pattern, timeout)
     equal(timeout, 0, 'Detection must not block per template')
     assert(previous, 'Detection should reuse the scan snapshot')
     searches[#searches + 1] = {region = self, filename = pattern.filename}
-    if visible[pattern.filename] then return Region(self.x + 2, self.y + 3, 20, 10) end
+    local target = visible[pattern.filename]
+    if type(target) == 'table' then
+        if target.x >= self.x and target.y >= self.y
+            and target.x+target.w <= self.x+self.w and target.y+target.h <= self.y+self.h then
+            return Region(target.x,target.y,target.w,target.h)
+        end
+    elseif target then return Region(self.x + 2, self.y + 3, 20, 10) end
 end
 function Region(x, y, w, h)
     return setmetatable({x=x, y=y, w=w, h=h}, {__index=regionMethods})
 end
-function Location(x,y) return {x=x,y=y} end
+function Location(x,y) return Region(x,y,0,0) end
 function Pattern(filename)
     equal(type(filename), 'string', 'Flat template filename')
     local f = assert(io.open('templates/' .. filename, 'rb'), 'Missing template: ' .. filename)
     f:close()
     patterns[#patterns+1] = filename
-    return {filename=filename, similar=function(self) return self end}
+    return {filename=filename, similar=function(self, threshold) self.threshold=threshold; return self end}
 end
 Settings = {
     setScriptDimension=function(_, byWidth, width)
         assert(viewport, 'Game area must be set before dimensions')
-        equal(byWidth, true); equal(width,1280); log[#log+1]='script'
+        assert((byWidth and width==1280) or (not byWidth and width==720)); log[#log+1]='script'
     end,
     setCompareDimension=function(_, byWidth, width)
-        equal(byWidth,true); equal(width,1280); log[#log+1]='compare'
+        assert((byWidth and width==1280) or (not byWidth and width==720)); log[#log+1]='compare'
     end,
 }
 function setImmersiveMode(value) log[#log+1]='immersive:' .. tostring(value) end
-function autoGameArea(value) equal(value,true); log[#log+1]='auto' end
+function autoGameArea(value) log[#log+1]=value and 'auto' or 'no-cutouts' end
 function getGameArea() log[#log+1]='get'; return Region(appArea.x,appArea.y,appArea.w,appArea.h) end
 function setGameArea(area) viewport=area; log[#log+1]='set' end
 function snapshot() frame=frame+1 end
@@ -83,6 +90,10 @@ local function reset()
     log,clicks,drags,patterns,searches,saves={},{},{},{},{},{}
     appArea={x=0,y=0,w=2400,h=1080}; viewport=nil
     frame,previous,visible,now,dialogValues=0,false,{},1000,{}
+    if package.loaded.screen then
+        package.loaded.screen.setup({centered=true})
+        log={}; viewport=nil
+    end
 end
 reset()
 -- Real AnkuLua reserves type() for text entry; typeOf supplies introspection.
@@ -112,7 +123,7 @@ for _, c in ipairs(cases) do
     test('viewport ' .. c[1], function()
         reset()
         appArea={x=c[2],y=c[3],w=c[4],h=c[5]}
-        local v=screen.setup()
+        local v=screen.setup({centered=true})
         equal(v.x,c[6]); equal(v.y,c[7]); equal(v.w,c[8]); equal(v.h,c[9])
         equal(table.concat(log,','),'immersive:true,auto,get,set,script,compare')
         actions.start_game()
@@ -121,6 +132,20 @@ for _, c in ipairs(cases) do
         local x=v.x+clicks[1].x*v.w/1280
         local y=v.y+clicks[1].y*v.w/1280
         assert(x>=v.x and x<v.x+v.w and y>=v.y and y<v.y+v.h)
+    end)
+end
+
+for _, c in ipairs(cases) do
+    test('expanded full game area ' .. c[1], function()
+        reset(); appArea={x=c[2],y=c[3],w=c[4],h=c[5]}
+        local v=screen.setup()
+        equal(v.x,c[2]); equal(v.y,c[3]); equal(v.w,c[4]); equal(v.h,c[5])
+        actions.start_game()
+        local scale=math.min(v.w/1280,v.h/720)
+        local physicalX=v.x+clicks[1].x*scale
+        local physicalY=v.y+clicks[1].y*scale
+        assert(math.abs(physicalX-(c[6]+955*c[8]/1280))<2,'Play X shifted from the working layout')
+        assert(math.abs(physicalY-(c[7]+650*c[9]/720))<2,'Play Y shifted from the working layout')
     end)
 end
 
@@ -133,10 +158,36 @@ test('reject portrait, invalid sizes and out-of-screen manual area', function()
     local good={x=0,y=0,w=2400,h=1080}
     fails(function() screen.viewport({x=0,y=0,w=1080,h=2400}) end,'landscape')
     fails(function() screen.viewport({x=0,y=0,w=0,h=0}) end,'Invalid')
-    fails(function() screen.viewport(good,{x=-1,y=0,w=1920,h=1080}) end,'outside')
+    fails(function() screen.viewport(good,{x=-1,y=0,w=1920,h=1080}) end,'Invalid')
     fails(function() screen.viewport(good,{x=1000,y=0,w=1920,h=1080}) end,'outside')
-    fails(function() screen.viewport(good,{x=0,y=0,w=2000,h=1080}) end,'16:9')
+    equal(screen.viewport(good,{x=0,y=0,w=2000,h=1080}).w,2000)
     fails(function() screen.viewport(good,{x=0.5,y=0,w=1920,h=1080}) end,'integer')
+end)
+test('default wide area preserves side pixels and the successful centered Play position', function()
+    reset()
+    local v=screen.setup()
+    equal(v.x,0); equal(v.w,2400)
+    equal(screen.fullRegion():getW(),1600); equal(screen.fullRegion():getH(),720)
+    actions.start_game()
+    equal(clicks[1].x,1115); equal(clicks[1].y,650)
+    -- Same physical tap as mobile.1's x=240 crop, but neither side is discarded.
+    equal(clicks[1].x*1.5,240+955*1.5)
+    local r=screen.region(config.STAGE_PURCHASE_ITEM_REGION)
+    equal(r:getX(),634); equal(r:getY(),84)
+end)
+test('manual Samsung window can have a wide aspect and physical offset', function()
+    reset()
+    local v=screen.setup({manual={x=120,y=80,w=1920,h=900},cutouts=false})
+    equal(v.x,120); equal(v.y,80)
+    equal(screen.fullRegion():getW(),1536)
+    equal(log[2],'no-cutouts')
+    actions.start_game(); equal(clicks[1].x,1083)
+end)
+test('tablet full area preserves top and bottom pixels', function()
+    reset(); appArea={x=0,y=0,w=2048,h=1536}
+    screen.setup()
+    equal(screen.fullRegion():getW(),1280); equal(screen.fullRegion():getH(),960)
+    actions.start_game(); equal(clicks[1].x,955); equal(clicks[1].y,770)
 end)
 test('all configured points, regions, and templates are valid', function()
     for key, value in pairs(config) do
@@ -199,6 +250,50 @@ test('full search uses normalized game area and retains Match', function()
     equal(searches[1].region.w,1280); equal(searches[1].region.h,720)
     assert(found[1].match); equal(found[1].x,2)
 end)
+test('wide recovery finds the purchase label outside the old crop on the same frame', function()
+    reset(); screen.setup()
+    visible['PURCHASE_ITEM_1.png']={x=15,y=84,w=121,h=45}
+    equal(detection.detect_stage({'PURCHASE_ITEM'}),nil)
+    local before=frame
+    equal(detection.detect_stage({'PURCHASE_ITEM'},nil,true),'PURCHASE_ITEM')
+    equal(frame,before+1); equal(previous,false)
+    equal(searches[#searches].region.w,1600)
+    equal(searches[#searches].region.x,0)
+end)
+test('wide recovery still honors exclusions and never taps an unrecognized screen', function()
+    reset(); screen.setup()
+    visible['RELIC_CLAIM_1.png']={x=15,y=100,w=100,h=40}
+    equal(detection.detect_stage({'RELIC_CLAIM'},{RELIC_CLAIM=true},true),nil)
+    equal(detection.detect_stage({'PURCHASE_ITEM'},nil,true),nil)
+    equal(#clicks,0)
+end)
+test('recovery widens at three seconds and all stages at ten, independently', function()
+    local state=require('recovery').new(100)
+    equal(state:poll(102,3,10,20).wide,false)
+    local scan=state:poll(103,3,10,20)
+    equal(scan.wide,true); equal(scan.all,false)
+    scan=state:poll(110,3,10,20); equal(scan.all,true)
+    scan=state:poll(120,3,10,20); equal(scan.diagnostic,true); equal(scan.elapsed,20)
+    equal(state:poll(150,3,10,20).diagnostic,false)
+    state:detected(150)
+    equal(state:poll(170,3,10,20).diagnostic,true)
+end)
+test('stall diagnostic includes window and last action, uses bounded filenames', function()
+    reset(); screen.setup(); actions.start_game()
+    local originalOpen=io.open
+    local contents,path
+    io.open=function(name,mode)
+        path=name
+        return {write=function(_,text) contents=text end,close=function() end}
+    end
+    require('diagnostics').save_unrecognized('PRE_GAME','MAINMENU',20)
+    io.open=originalOpen
+    equal(saves[1],'debug_unrecognized.png')
+    equal(path,'./templates/debug_unrecognized.txt')
+    assert(contents:find('Last stage: MAINMENU',1,true))
+    assert(contents:find('width=2400',1,true))
+    assert(contents:find('logical=(1115,650)',1,true))
+end)
 test('friend scroll stays inside the reference screen', function()
     reset()
     local original=detection.detect_templates
@@ -235,6 +330,26 @@ test('calibration entry point never taps and saves a diagnostic', function()
     fails(function() dofile('main.lua') end,'EXIT:Calibration finished')
     equal(#clicks,0); equal(#saves,1)
     assert(saves[1]:match('^debug_screen_.*%.png$'))
+end)
+test('real bot recovery reaches run Play promptly when item label is outside old crop', function()
+    reset(); screen.setup()
+    visible['MAINMENU_1.png']=true
+    local originalClick=click
+    local firstTap,runTap
+    click=function(point)
+        originalClick(point)
+        if point.x==1115 and point.y==650 then
+            firstTap=now
+            visible={['PURCHASE_ITEM_1.png']={x=15,y=84,w=121,h=45}}
+        elseif point.x==1055 and point.y==620 then
+            runTap=now
+            error('REACHED_RUN_PLAY')
+        else error('Unexpected tap during recovery') end
+    end
+    fails(function() require('bot').main() end,'REACHED_RUN_PLAY')
+    click=originalClick
+    assert(firstTap and runTap and runTap-firstTap<7,'Wide recovery was too slow')
+    equal(#clicks,2); equal(#saves,0)
 end)
 test('simple bot completes two rounds, buys once, and waits until five minutes', function()
     reset(); dialogValues={use_random_boost=true}

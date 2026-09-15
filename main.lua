@@ -6,6 +6,10 @@ local screen = require("screen")
 dialogInit()
 addCheckBox("screen_immersive", "Game hides Android navigation bar", true)
 newRow()
+addCheckBox("screen_cutouts", "Exclude camera cutout area (uncheck if game draws there)", true)
+newRow()
+addCheckBox("screen_centered", "Legacy: crop to centered 16:9 (only for actual black bars)", false)
+newRow()
 addCheckBox("screen_manual", "Use manual game area (physical screenshot pixels)", false)
 newRow()
 addTextView("Manual X / Y / width / height (only used if checked):")
@@ -20,13 +24,15 @@ dialogShow("CookieRun screen setup")
 
 screen.setup({
     immersive = screen_immersive,
+    cutouts = screen_cutouts,
+    centered = screen_centered,
     manual = screen_manual and {x = screen_x, y = screen_y, w = screen_width, h = screen_height} or nil,
 })
 
 if screen_preview then
     screen.preview()
     local detection = require("detection")
-    local stage = detection.detect_stage()
+    local stage = detection.detect_stage(nil, nil, true)
     print("Calibration stage: " .. tostring(stage or "not detected"))
     require("diagnostics").save_debug_screen()
     scriptExit("Calibration finished. Check highlights and templates/debug_screen_*.png. Run again with Calibration only unchecked to start.")

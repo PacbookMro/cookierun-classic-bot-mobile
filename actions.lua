@@ -2,19 +2,14 @@ local config = require("config")
 local detection = require("detection")
 
 local actions = {}
+local screen = require("screen")
 
 local function randomSleep(minSec, maxSec)
     local delay = minSec + math.random() * (maxSec - minSec)
     sleep(delay)
 end
 
-local function tap(point)
-    if point then
-        click(Location(point[1], point[2]))
-    else
-        scriptExit("point null")
-    end
-end
+local tap = screen.tap
 
 function actions.start_game()
     print("🏁 Starting the game...")
@@ -207,7 +202,7 @@ function actions.handle_anti_bot()
             local ty = math.random(cy + margin, cy + config.ANTI_BOT_CARD_HEIGHT - margin)
 
             print(string.format("  👆 Tapping Card %d at (%d, %d)", idx, tx, ty))
-            click(Location(tx, ty))
+            tap({tx, ty})
             randomSleep(1.0, 1.0)
         end
 
@@ -240,8 +235,8 @@ function actions.handle_send_friend_life()
             break
         end
         print("🔄 Scrolling up to find Send Friend Life...")
-        local startLoc = Location(config.LEADERBOARD_TOP_POSITION[1], config.LEADERBOARD_TOP_POSITION[2])
-        local endLoc = Location(config.LEADERBOARD_BOTTOM_POSITION[1], config.LEADERBOARD_BOTTOM_POSITION[2])
+        local startLoc = screen.location(config.LEADERBOARD_TOP_POSITION[1], config.LEADERBOARD_TOP_POSITION[2])
+        local endLoc = screen.location(config.LEADERBOARD_BOTTOM_POSITION[1], config.LEADERBOARD_BOTTOM_POSITION[2])
         dragDrop(startLoc, endLoc)
         randomSleep(0.8, 1.4)
     end
@@ -277,8 +272,8 @@ function actions.handle_send_friend_life()
                 break
             end
             print(string.format("🔄 No send life buttons found, scrolling down... (%d/30)", no_button_scroll_count))
-            local startLoc = Location(config.LEADERBOARD_BOTTOM_POSITION[1], config.LEADERBOARD_BOTTOM_POSITION[2])
-            local endLoc = Location(config.LEADERBOARD_TOP_POSITION[1], config.LEADERBOARD_TOP_POSITION[2])
+            local startLoc = screen.location(config.LEADERBOARD_BOTTOM_POSITION[1], config.LEADERBOARD_BOTTOM_POSITION[2])
+            local endLoc = screen.location(config.LEADERBOARD_TOP_POSITION[1], config.LEADERBOARD_TOP_POSITION[2])
             dragDrop(startLoc, endLoc)
             randomSleep(0.8, 1.4)
         end

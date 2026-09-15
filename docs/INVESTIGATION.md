@@ -2,7 +2,24 @@
 
 Baseline: AnkuLua/cookierun-classic-bot commit `63186fa`.
 
-## Coordinate problem
+## mobile.2 follow-up: first phone feedback
+
+The tester supplied a 2400×1080 main-menu screenshot with calibration active and reported a successful initial Play tap followed by a stall. The picture shows artwork beyond the cropped area. It does not show the subsequent item/buff screen, so a resolution-only diagnosis is not established.
+
+Two concrete code defects could prevent recovery: the first release restricted all searches to a centered 16:9 crop, and its recovery scan changed the stage list while retaining exactly the same small search rectangles. PRE_GAME recovery waited sixty seconds and IN_GAME recovery waited five minutes. The purchase-screen template is a small English `Shapes` label, so a moved or missing label can explain a stall even with buying disabled.
+
+The new default retains AnkuLua's full game area. Images and coordinates scale uniformly by height on wide phones and by width on taller landscape windows. The old 1280×720 reference UI is centered in the expanded logical canvas. This preserves the initial Play position while making side content searchable. `screen.location`, `screen.region`, card crops, and drag endpoints all share that translation; native Match clicks remain unchanged. Manual window rectangles accept any landscape aspect ratio. An explicit legacy crop is available for real letterboxing.
+
+Recovery searches the whole area for the current group every three seconds, then all stage types every ten seconds. Wide searches use a stricter similarity threshold. A twenty-second absence of recognized menus saves bounded diagnostics, including the last stage/action and window mapping. Failed scans do not reset the last-recognized time. Gameplay may legitimately have no menu matches; the bot does not treat that alone as a failure or issue blind taps.
+
+Samsung multi-window does not imply automatic knowledge of app bounds. Android supports [multi-resume](https://developer.android.com/develop/ui/views/layout/support-multi-window-mode#multi-resume), with behavior depending on platform/app/window state. This script accepts a manually measured visible game window; it cannot control the other app's lifecycle or automatically track window resizing.
+
+Regression tests exercise a purchase marker outside the old crop, unchanged physical Play placement, wide/manual/tablet mapping, recovery clocks, exclusions, and bounded diagnostics. No post-Play screenshot or live device was available for this revision. Missing artwork or independent button reflow may still require a specific profile.
+
+## mobile.1 investigation (historical)
+
+### Coordinate problem
+
 
 The original Python bot explicitly requires 1280×720, captures raw ADB screenshots, searches fixed rectangles, and taps fixed coordinates. The Lua port keeps those coordinates and uses `setScriptDimension(false, 720)` / `setCompareDimension(false, 720)`. Those settings already support uniform height-based resizing on matching layouts. The missing part is defining the real game area before scaling: wider screens, cutouts, and black bars can shift the game's origin or change its usable dimensions.
 

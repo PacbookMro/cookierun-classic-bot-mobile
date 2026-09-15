@@ -4,12 +4,13 @@ local config = require("config")
 local screen = require("screen")
 local templateCache = {}
 
-local function getPattern(filename)
+local function getPattern(filename, wide)
     assert(valueType(filename) == "string", "Template filename must be a string")
-    if not templateCache[filename] then
-        templateCache[filename] = Pattern(filename):similar(config.MATCH_THRESHOLD)
+    local key = filename .. (wide and ":wide" or ":normal")
+    if not templateCache[key] then
+        templateCache[key] = Pattern(filename):similar(wide and config.WIDE_MATCH_THRESHOLD or config.MATCH_THRESHOLD)
     end
-    return templateCache[filename]
+    return templateCache[key]
 end
 
 local function load_templates()
@@ -38,7 +39,7 @@ local function detect_templates(template_files, region)
     return matches
 end
 
-local function detect_stage(stage_names, exclude)
+local function detect_stage(stage_names, exclude, wide)
     if not stage_names then
         stage_names = {}
         for name in pairs(config.STAGE_TEMPLATES) do table.insert(stage_names, name) end
@@ -66,6 +67,24 @@ local function detect_stage(stage_names, exclude)
             end
         end
     end
+    if wide then
+        -- Recovery must widen the search rectangle, not merely the stage list.
+        -- Keep the stricter threshold: these labels may occur elsewhere on screen.
+        local full = screen.fullRegion()
+        for _, stage_name in ipairs(stage_names) do
+            if not excludeSet[stage_name] then
+                for _, filename in ipairs(config.STAGE_TEMPLATES[stage_name] or {}) do
+                    local match = full:exists(getPattern(filename, true), 0)
+                    if match then
+                        print(string.format("Wide search found %s at %.0f,%.0f (score %.2f)",
+                            stage_name, match:getX(), match:getY(), match:getScore()))
+                        usePreviousSnap(false)
+                        return stage_name
+                    end
+                end
+            end
+        end
+    end
     usePreviousSnap(false)
     return nil
 end
@@ -82,7 +101,7 @@ local function detect_anti_bot_odd_cards()
 
     local cardRegions = {}
     for i, pos in ipairs(card_coords) do
-        cardRegions[i] = Region(pos[1], pos[2], config.ANTI_BOT_CARD_WIDTH, config.ANTI_BOT_CARD_HEIGHT)
+        cardRegions[i] = screen.region({pos[1], pos[2], pos[1] + config.ANTI_BOT_CARD_WIDTH, pos[2] + config.ANTI_BOT_CARD_HEIGHT})
     end
 
     local n = #cardRegions
