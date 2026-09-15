@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.1.0-mobile.4
+
+- Add Select game window: intercepted top-left/bottom-right corner taps and editable rectangle review.
+- Save/reuse a window profile tied to physical display dimensions.
+- Support a landscape top pane inside a portrait phone, including height-scaled layouts with cropped sides.
+- Restrict searches/taps to the pane, skip wholly off-screen regions, and reject changed display dimensions.
+- Add a Samsung Good Lock / MultiStar setup guide for game above manga/chat.
+
+Profiles do not track divider movement or keyboard-driven pane resizing. Actual phone testing is still needed.
+
 ## v1.1.0-mobile.3
 
 Target the initial main-menu Play, now reported as the remaining failure.

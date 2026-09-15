@@ -1,4 +1,11 @@
-# Phone test checklist — mobile.3
+# Phone test checklist — mobile.4
+
+## MultiStar window test
+
+Follow [Samsung MultiStar setup](SAMSUNG_MULTI_WINDOW.md). Put CookieRun above another app on a portrait display, select its two corners, and verify the calibration outline covers only the game. Reuse the saved window for an automation run. Test the two distinct Play buttons, buying, and result clearing while the lower app is visible.
+
+Confirm a physical rotation stops automation and that reselecting a moved/resized pane restores alignment. Stop before a divider or keyboard changes the game rectangle. Profiles do not automatically follow those changes.
+
 
 ## Focus for this build
 

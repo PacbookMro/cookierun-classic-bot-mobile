@@ -2,6 +2,16 @@
 
 Baseline: AnkuLua/cookierun-classic-bot commit `63186fa`.
 
+## mobile.4: Samsung MultiStar game pane
+
+The supplied example shows a portrait display with a landscape game pane above chat. Its game pane appears to use height-based UI scaling, cropping the sides when narrower than 16:9. The previous fullscreen fit-and-center geometry cannot represent that behavior reliably.
+
+The new Select game window mode temporarily maps the full physical display 1:1, then uses AnkuLua's intercepted getTouchEvent() clicks for the two corners. After an editable review, it saves a numeric profile without executing Lua from that file. Reuse validates display dimensions and rectangle bounds. It sets the selected rectangle as the game area and normalizes height to 720, allowing a negative horizontal UI offset in narrow panes. Fullscreen mapping is unchanged.
+
+Region intersections can now be empty: local detection skips those areas instead of accidentally searching elsewhere. Taps outside the selected logical canvas are rejected. Mapped calls and native main-menu/friend Match clicks check physical display dimensions before acting. This does not discover arbitrary Android app bounds or track divider/keyboard changes; reselection is required when the pane moves or resizes.
+
+Tests cover portrait top panes, offset pop-ups, the narrow screenshot-like aspect ratio, physical tap containment, exclusion of matching text in the bottom app, intercepted selection, profile validation, and display rotation. Real MultiStar/AnkuLua integration and simultaneous rendering still require phone verification.
+
 ## mobile.3 follow-up: initial main-menu Play
 
 The latest report clarifies that buying and result clearing work, but the first main-menu Play is not clicked. Six screenshots show the intended flow. They narrow the issue to the MAINMENU step, although no runtime log was supplied to prove whether recognition or the touch action fails.

@@ -26,6 +26,7 @@ end
 local function detect_templates(template_files, region)
     local searchReg = screen.region(region)
     local matches = {}
+    if not searchReg then return matches end
     snapshot()
     usePreviousSnap(true)
     for _, filename in ipairs(template_files) do
@@ -60,7 +61,7 @@ local function detect_stage(stage_names, exclude, wide)
             if template_files then
                 local searchReg = screen.region(config.STAGE_REGIONS[stage_name])
                 for _, filename in ipairs(template_files) do
-                    if searchReg:exists(getPattern(filename), 0) then
+                    if searchReg and searchReg:exists(getPattern(filename), 0) then
                         usePreviousSnap(false)
                         return stage_name
                     end
@@ -116,7 +117,7 @@ local function detect_anti_bot_odd_cards()
 
     local cardRegions = {}
     for i, pos in ipairs(card_coords) do
-        cardRegions[i] = screen.region({pos[1], pos[2], pos[1] + config.ANTI_BOT_CARD_WIDTH, pos[2] + config.ANTI_BOT_CARD_HEIGHT})
+        cardRegions[i] = assert(screen.region({pos[1], pos[2], pos[1] + config.ANTI_BOT_CARD_WIDTH, pos[2] + config.ANTI_BOT_CARD_HEIGHT}), "Card is outside the game pane; resize and recalibrate.")
     end
 
     local n = #cardRegions

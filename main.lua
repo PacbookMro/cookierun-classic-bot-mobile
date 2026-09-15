@@ -1,9 +1,15 @@
--- Run this entry point from AnkuLua with CookieRun open in landscape.
+-- Run with CookieRun visible, either fullscreen or in a landscape game pane.
 package.path = scriptPath() .. "?.lua;" .. package.path
 setImagePath(scriptPath() .. "templates/")
 
 local screen = require("screen")
 dialogInit()
+addTextView("Where is CookieRun running?")
+newRow()
+addSpinner("screen_mode", {"Full screen / manual", "Select game window", "Reuse saved game window"}, "Full screen / manual")
+newRow()
+addTextView("Window modes use your selected pane. Settings below apply to fullscreen/manual mode.")
+newRow()
 addCheckBox("screen_immersive", "Game hides Android navigation bar", true)
 newRow()
 addCheckBox("screen_cutouts", "Exclude camera cutout area (uncheck if game draws there)", true)
@@ -22,14 +28,20 @@ newRow()
 addCheckBox("screen_preview", "Calibration only: highlight positions without tapping", true)
 dialogShow("CookieRun screen setup")
 
-screen.setup({
-    immersive = screen_immersive,
-    cutouts = screen_cutouts,
-    centered = screen_centered,
-    manual = screen_manual and {x = screen_x, y = screen_y, w = screen_width, h = screen_height} or nil,
-})
+if screen_mode == "Select game window" or screen_mode == "Reuse saved game window" then
+    local profile = require("window_profile")
+    local rect = screen_mode == "Select game window" and profile.select() or profile.load()
+    screen.setup({window=true, manual=rect})
+else
+    screen.setup({
+        immersive = screen_immersive,
+        cutouts = screen_cutouts,
+        centered = screen_centered,
+        manual = screen_manual and {x = screen_x, y = screen_y, w = screen_width, h = screen_height} or nil,
+    })
+end
 
-print("CookieRun v1.1.0-mobile.3 | " .. (screen_preview and "CALIBRATION ONLY (no taps)" or "AUTOMATION"))
+print("CookieRun v1.1.0-mobile.4 | " .. (screen_preview and "CALIBRATION ONLY (no taps)" or "AUTOMATION"))
 
 if screen_preview then
     screen.preview()

@@ -2,23 +2,22 @@
 
 An Android [AnkuLua](https://ankulua.boards.net/thread/2/ankulua-introduction) bot based on [AnkuLua's Lua port](https://github.com/AnkuLua/cookierun-classic-bot), originally [max180643's Python bot](https://github.com/max180643/cookierun-classic-bot).
 
-**v1.1.0-mobile.3 is a phone-test build focused on the first main-menu Play tap.** The tester reports that buff buying and clearing results work; this revision changes main-menu recognition and adds clearer diagnostics.
+**v1.1.0-mobile.4 adds Samsung MultiStar window setup.** Put CookieRun in the top pane and manga/chat in the bottom pane, then select the game's two corners in the bot. The saved profile keeps its searches and taps inside that fixed game rectangle.
 
-## Updating from mobile.1 / mobile.2
+## Samsung MultiStar: game on top, chat/manga below
 
-Extract the new release into a **fresh folder** and select its `main.lua`. Keep the screen settings that worked in mobile.2, including Legacy crop off for the wider game area.
+1. Use Samsung's split-screen controls with your existing **Good Lock → MultiStar** settings to keep both apps running. CookieRun belongs in the top pane; AnkuLua controls the bot through its floating button.
+2. In the bot's startup dialog, choose **Select game window** and leave **Calibration only** checked.
+3. Tap the top-left and bottom-right corners of **the game content only**, then review the rectangle. Exclude the divider and lower app.
+4. Check the calibration outline. Run again with **Reuse saved game window** and **Calibration only unchecked**.
 
-1. Run calibration on the first main menu. Expect `MAINMENU` in the log.
-2. Run again and **uncheck Calibration only**. The log should say **AUTOMATION**. Calibration deliberately makes no taps.
-3. Select your usual buff settings. The first main-menu Play should open the item/buff screen; the existing buying and result-clearing flow then continues.
+The phone can stay portrait. A short landscape game pane is required. Stop and reselect after changing the divider, moving a pop-up, or a keyboard resize. See the [complete MultiStar guide](docs/SAMSUNG_MULTI_WINDOW.md), including Samsung setup links and limitations.
 
-The bot previously depended entirely on a small screenshot of the **Friends** tab before it would tap the first Play button. This build expands that tab's local search area and adds a fallback using the **green main-menu Play button plus the cyan Pet/Cookie/Treasure bar directly above it**. It samples both controls on one color frame, then rechecks the screen after waiting before tapping. A green Play button on the purchase screen is insufficient to trigger the fallback.
-
-When this fallback succeeds, the log says `MAINMENU recognized by Play button and cyan tabs`, followed by `Main-menu Play verified at logical=(...)` when tapped. Its color/layout thresholds are chosen for the supplied screenshots; actual phone confirmation is still required.
+For fullscreen use, choose **Full screen / manual** and keep the screen/buff settings that worked in mobile.3. The first-menu Play fallback, buff buying, and result-clearing flow are retained.
 
 ## Download and run
 
-1. Download `cookierun-classic-bot-mobile-v1.1.0-mobile.3.zip` from [Releases](https://github.com/PacbookMro/cookierun-classic-bot-mobile/releases).
+1. Download `cookierun-classic-bot-mobile-v1.1.0-mobile.4.zip` from [Releases](https://github.com/PacbookMro/cookierun-classic-bot-mobile/releases).
 2. Extract the entire ZIP into a writable folder on the phone. Keep every `.lua` file and `templates/` together. This is a script bundle, not an APK.
 3. Use **AnkuLua 8.2+** with its screen capture and tap service working. No Python, PC emulator, or phone-resolution change is needed.
 4. Open CookieRun in a **landscape game window**, on the main menu. Select the extracted `main.lua` in AnkuLua.
@@ -40,11 +39,11 @@ For actual 16:9 letterboxed content, the optional Legacy crop reproduces the fir
 
 Turn Simple mode off to enable optional relic collection and friend-life handling. Normal results and connection/inactive dialogs are handled in both modes. The bot uses the in-game reload button; it does not force-stop and relaunch CookieRun.
 
-## Samsung split-screen / pop-up windows
+## Window profiles
 
-A manually specified game area can cover a landscape window of any aspect ratio; it no longer has to be 16:9. Enter **X, Y, width, height in physical screenshot pixels**, excluding the other app, window borders, and toolbars. The script cannot automatically discover the bounds of an arbitrary Samsung window. The game must be visible and continue rendering; this script cannot resume a game paused by Android or the game itself.
+**Select game window** measures two corners in physical screenshot pixels and saves `window-profile.txt` in the script folder. **Reuse saved game window** reloads it after checking the display size/orientation. Both modes use height-based game scaling; fullscreen uses the existing fit-and-center mapping.
 
-Stop and recalibrate after moving/resizing the window, changing fullscreen mode, rotating, or folding/unfolding the device. Running both apps concurrently does not itself give the bot the correct game-window coordinates.
+The saved rectangle remains fixed. Stop before moving/resizing it or opening a keyboard that changes the game pane. Physical display rotation/size changes are detected; divider movement alone is not. For complete instructions, see [Samsung MultiStar setup](docs/SAMSUNG_MULTI_WINDOW.md).
 
 ## If the first Play still is not tapped
 

@@ -14,6 +14,7 @@ local tap = screen.tap
 function actions.start_game(verifiedTarget)
     print("🏁 Starting the game...")
     if verifiedTarget then
+        screen.checkDisplay()
         screen.last_action = string.format("Main-menu Play verified at logical=(%d,%d)",
             verifiedTarget:getX(), verifiedTarget:getY())
         print(screen.last_action)
@@ -263,6 +264,7 @@ function actions.handle_send_friend_life()
             no_button_scroll_count = 0
             for _, btn in ipairs(sendButtons) do
                 print("💌 Sending life to friend...")
+                screen.checkDisplay()
                 click(btn.match)
                 randomSleep(0.8, 1.4)
                 print("💌 Confirming send life...")

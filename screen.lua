@@ -31,20 +31,33 @@ function screen.setup(options)
     options = options or {}
     assert(setImmersiveMode and autoGameArea and getGameArea and setGameArea,
         "This script requires AnkuLua 8.2 or newer with game-area support.")
-    setImmersiveMode(options.immersive ~= false)
-    autoGameArea(options.cutouts ~= false)
-    local region = getGameArea()
-    local area = {x=region:getX(), y=region:getY(), w=region:getW(), h=region:getH()}
+    local area
+    if options.window then
+        assert(options.manual, "Select a game window first")
+        -- Window bounds are absolute screenshot pixels, independent of Android
+        -- status bars and the other app. Do not crop the display before them.
+        setImmersiveMode(true)
+        autoGameArea(false)
+        local size = getRealScreenSize()
+        area = {x=0,y=0,w=size:getX(),h=size:getY()}
+    else
+        setImmersiveMode(options.immersive ~= false)
+        autoGameArea(options.cutouts ~= false)
+        local region = getGameArea()
+        area = {x=region:getX(), y=region:getY(), w=region:getW(), h=region:getH()}
+    end
     local viewport = screen.viewport(area, options.manual, options.centered)
     setGameArea(Region(viewport.x, viewport.y, viewport.w, viewport.h))
     -- Preserve image proportions, including tall landscape tablet windows.
-    local byWidth = viewport.w / viewport.h < screen.WIDTH / screen.HEIGHT
+    local byWidth = not options.window and viewport.w / viewport.h < screen.WIDTH / screen.HEIGHT
     local dimension = byWidth and screen.WIDTH or screen.HEIGHT
     Settings:setScriptDimension(byWidth, dimension)
     Settings:setCompareDimension(byWidth, dimension)
     local scale = byWidth and viewport.w / screen.WIDTH or viewport.h / screen.HEIGHT
     logicalWidth, logicalHeight = viewport.w / scale, viewport.h / scale
     offsetX, offsetY = (logicalWidth - screen.WIDTH) / 2, (logicalHeight - screen.HEIGHT) / 2
+    screen.display = {w=area.w,h=area.h}
+    screen.window = options.window == true
     screen.current = viewport
     screen.last_action = nil
     print(screen.describe())
@@ -57,13 +70,25 @@ function screen.describe()
         v.x, v.y, v.w, v.h, logicalWidth, logicalHeight, offsetX, offsetY)
 end
 
+-- A saved pane cannot be reused across a physical display rotation/resize.
+-- Moving a split divider without changing display size still requires reselection.
+function screen.checkDisplay()
+    if screen.window then
+        local size = getRealScreenSize()
+        assert(size:getX()==screen.display.w and size:getY()==screen.display.h,
+            "Display changed. Stop and select the game window again.")
+    end
+end
+
 function screen.fullRegion()
+    screen.checkDisplay()
     return Region(0, 0, math.floor(logicalWidth), math.floor(logicalHeight))
 end
 
 -- Translate reference UI coordinates into the expanded logical canvas.
 -- AnkuLua handles the physical scale and window offset exactly once.
 function screen.location(x, y)
+    screen.checkDisplay()
     local px, py = math.floor(x + offsetX + 0.5), math.floor(y + offsetY + 0.5)
     assert(px >= 0 and py >= 0 and px < logicalWidth and py < logicalHeight,
         "Action outside game area; recalibrate the game window.")
@@ -80,11 +105,13 @@ function screen.tap(point)
 end
 
 function screen.region(bounds)
+    screen.checkDisplay()
     if not bounds then return screen.fullRegion() end
     local x = math.max(0, math.floor(bounds[1] + offsetX))
     local y = math.max(0, math.floor(bounds[2] + offsetY))
     local right = math.min(math.floor(logicalWidth), math.ceil(bounds[3] + offsetX))
     local bottom = math.min(math.floor(logicalHeight), math.ceil(bounds[4] + offsetY))
+    if right <= x or bottom <= y then return nil end
     return Region(x, y, right - x, bottom - y)
 end
 
@@ -101,8 +128,12 @@ function screen.preview()
     for _, entry in ipairs(points) do
         local point = entry[2]
         local marker = screen.region({point[1]-15, point[2]-15, point[1]+15, point[2]+15})
-        marker:highlight(entry[1], 3)
-        marker:highlightOff()
+        if marker then
+            marker:highlight(entry[1], 3)
+            marker:highlightOff()
+        else
+            print(entry[1] .. " is outside the game pane. Reduce the pane height or widen it.")
+        end
     end
 end
 

@@ -20,6 +20,7 @@ end
 -- Locations remain at 1280x720. Real AnkuLua performs the final scaling.
 local log, clicks, drags, patterns, searches, saves
 local appArea, viewport, frame, previous, visible, now, dialogValues
+local realWidth, realHeight, scriptAxis, scriptDimension
 local regionMethods = {}
 function regionMethods:getX() return self.x end
 function regionMethods:getY() return self.y end
@@ -56,14 +57,15 @@ end
 Settings = {
     setScriptDimension=function(_, byWidth, width)
         assert(viewport, 'Game area must be set before dimensions')
-        assert((byWidth and width==1280) or (not byWidth and width==720)); log[#log+1]='script'
+        assert((byWidth and (width==1280 or width==realWidth)) or (not byWidth and width==720)); scriptAxis,scriptDimension=byWidth,width; log[#log+1]='script'
     end,
     setCompareDimension=function(_, byWidth, width)
-        assert((byWidth and width==1280) or (not byWidth and width==720)); log[#log+1]='compare'
+        equal(byWidth,scriptAxis); equal(width,scriptDimension); log[#log+1]='compare'
     end,
 }
 function setImmersiveMode(value) log[#log+1]='immersive:' .. tostring(value) end
 function autoGameArea(value) log[#log+1]=value and 'auto' or 'no-cutouts' end
+function getRealScreenSize() return Location(realWidth,realHeight) end
 function getGameArea() log[#log+1]='get'; return Region(appArea.x,appArea.y,appArea.w,appArea.h) end
 function setGameArea(area) viewport=area; log[#log+1]='set' end
 function snapshot() frame=frame+1 end
@@ -90,6 +92,7 @@ os.time = function() return math.floor(now) end
 local function reset()
     log,clicks,drags,patterns,searches,saves={},{},{},{},{},{}
     appArea={x=0,y=0,w=2400,h=1080}; viewport=nil
+    realWidth,realHeight=2400,1080
     frame,previous,visible,now,dialogValues=0,false,{},1000,{}
     if package.loaded.screen then
         package.loaded.screen.setup({centered=true})
@@ -190,6 +193,151 @@ test('tablet full area preserves top and bottom pixels', function()
     equal(screen.fullRegion():getW(),1280); equal(screen.fullRegion():getH(),960)
     actions.start_game(); equal(clicks[1].x,955); equal(clicks[1].y,770)
 end)
+test('portrait split screen scales the selected top pane by height and contains taps', function()
+    reset(); realWidth,realHeight=1080,2400
+    local rect={x=0,y=24,w=1080,h=700}
+    screen.setup({window=true,manual=rect})
+    equal(viewport.w,1080); equal(viewport.h,700); equal(viewport.y,24)
+    equal(scriptAxis,false); equal(scriptDimension,720)
+    local reg=screen.fullRegion()
+    equal(reg:getH(),720); equal(reg:getW(),1110)
+    actions.start_game(); actions.play_game(); actions.purchase_random_boost()
+    for _,point in ipairs(clicks) do
+        local x=rect.x+point:getX()*rect.h/720
+        local y=rect.y+point:getY()*rect.h/720
+        assert(x>=rect.x and x<rect.x+rect.w)
+        assert(y>=rect.y and y<rect.y+rect.h,'Tap escaped into bottom app')
+    end
+    -- main Play and lobby Play remain separate inside the game pane.
+    equal(clicks[1].y,650); equal(clicks[2].y,620)
+end)
+test('top-pane scale matches the narrow example instead of fitting a whole 16:9 canvas', function()
+    reset(); realWidth,realHeight=692,1536
+    screen.setup({window=true,manual={x=0,y=0,w=692,h=449}})
+    actions.start_game()
+    local physicalX=clicks[1].x*449/720
+    local physicalY=clicks[1].y*449/720
+    assert(math.abs(physicalX-542)<2)
+    assert(math.abs(physicalY-405)<2)
+    fails(function() screen.location(1279,650) end,'outside game area')
+    equal(screen.region({1200,0,1280,100}),nil)
+end)
+test('cropped reference regions skip local searches instead of searching chat', function()
+    reset(); realWidth,realHeight=1080,2400
+    screen.setup({window=true,manual={x=0,y=0,w=1080,h=800}})
+    equal(#detection.detect_templates(config.STAGE_MAINMENU_TEMPLATE,{1200,0,1280,100}),0)
+    equal(#searches,0)
+    local found=detection.detect_templates(config.STAGE_MAINMENU_TEMPLATE)
+    equal(#found,0)
+    for _,entry in ipairs(searches) do
+        assert(entry.region:getY()+entry.region:getH()<=720)
+    end
+end)
+test('wide recovery is restricted to the game pane even when another app has matching text', function()
+    reset(); realWidth,realHeight=1080,2400
+    screen.setup({window=true,manual={x=0,y=0,w=1080,h=700}})
+    -- Chat text would be below the selected pane after height normalization.
+    visible['MAINMENU_1.png']={x=100,y=900,w=174,h=59}
+    equal(detection.detect_stage({'MAINMENU'},nil,true),nil)
+    for _,entry in ipairs(searches) do
+        assert(entry.region:getY()+entry.region:getH()<=720)
+    end
+end)
+
+local function fakeProfileIO(initial)
+    local original=io.open
+    local data=initial
+    io.open=function(path,mode)
+        if path~='./window-profile.txt' then return original(path,mode) end
+        if mode=='r' then
+            if not data then return nil end
+            return {read=function() return data end,close=function() end}
+        end
+        return {write=function(_,text) data=text end,close=function() end}
+    end
+    return function() io.open=original; return data end
+end
+
+test('two-corner picker saves physical pixels and does not send game/chat taps', function()
+    reset(); realWidth,realHeight=1080,2400
+    local queue={Location(2,25),Location(1078,723)}
+    local restore=fakeProfileIO()
+    getTouchEvent=function()
+        equal(scriptAxis,true); equal(scriptDimension,1080,'Picker must use physical pixels')
+        return 'click',table.remove(queue,1)
+    end
+    local rect=require('window_profile').select()
+    equal(rect.x,2); equal(rect.y,25); equal(rect.w,1076); equal(rect.h,698)
+    local saved=restore(); getTouchEvent=nil
+    equal(saved,'1 1080 2400 2 25 1076 698\n')
+    equal(#clicks,0)
+end)
+test('saved window profile rejects changed display, missing/corrupt data, and out-of-bounds rectangles', function()
+    reset(); realWidth,realHeight=1080,2400
+    local restore=fakeProfileIO('1 1080 2400 0 24 1080 700\n')
+    local rect=require('window_profile').load(); equal(rect.h,700)
+    realWidth,realHeight=2400,1080
+    fails(function() require('window_profile').load() end,'orientation changed')
+    restore(); realWidth,realHeight=1080,2400
+    for _,fixture in ipairs({'', 'return os.execute("bad")', '1 1080 2400 500 0 1080 700'}) do
+        restore=fakeProfileIO(fixture)
+        local ok=pcall(require('window_profile').load)
+        equal(ok,false)
+        restore()
+    end
+    restore=fakeProfileIO()
+    fails(function() require('window_profile').load() end,'No saved window')
+    restore()
+end)
+test('picker rejects drag gestures without saving or tapping', function()
+    reset(); realWidth,realHeight=1080,2400
+    getTouchEvent=function() return 'swipe',{} end
+    fails(function() require('window_profile').select() end,'do not drag')
+    getTouchEvent=nil; equal(#clicks,0)
+end)
+test('portrait main entry loads saved game pane and calibration never taps', function()
+    reset(); realWidth,realHeight=1080,2400
+    dialogValues.screen_mode='Reuse saved game window'
+    local restore=fakeProfileIO('1 1080 2400 0 24 1080 700\n')
+    fails(function() dofile('main.lua') end,'EXIT:Calibration finished')
+    restore()
+    equal(viewport.y,24); equal(viewport.w,1080); equal(viewport.h,700)
+    equal(#clicks,0); equal(#saves,1)
+end)
+
+test('window mode rejects taps and searches after physical display rotation', function()
+    reset(); realWidth,realHeight=1080,2400
+    screen.setup({window=true,manual={x=0,y=24,w=1080,h=700}})
+    local verified=screen.location(955,650)
+    realWidth,realHeight=2400,1080
+    fails(function() actions.start_game(verified) end,'Display changed')
+    fails(function() actions.play_game() end,'Display changed')
+    fails(function() detection.detect_stage({'MAINMENU'}) end,'Display changed')
+    equal(#clicks,0)
+end)
+test('picker rejects rotation between the two corner touches', function()
+    reset(); realWidth,realHeight=1080,2400
+    local index=0
+    getTouchEvent=function()
+        index=index+1
+        if index==2 then realWidth,realHeight=2400,1080; return 'click',Location(1000,700) end
+        return 'click',Location(0,24)
+    end
+    fails(function() require('window_profile').select() end,'Display changed during selection')
+    getTouchEvent=nil; equal(#clicks,0)
+end)
+test('offset pop-up game pane excludes the rest of the portrait display', function()
+    reset(); realWidth,realHeight=1080,2400
+    local rect={x=100,y=160,w=880,h=500}
+    screen.setup({window=true,manual=rect})
+    actions.start_game(); actions.play_game(); actions.purchase_fast_start(); actions.purchase_cookie_relay()
+    for _,point in ipairs(clicks) do
+        local x=rect.x+point:getX()*rect.h/720
+        local y=rect.y+point:getY()*rect.h/720
+        assert(x>=rect.x and x<rect.x+rect.w and y>=rect.y and y<rect.y+rect.h)
+    end
+end)
+
 test('all configured points, regions, and templates are valid', function()
     for key, value in pairs(config) do
         if key:match('_BUTTON$') or key:match('_ITEM$') or key:match('_POSITION$') or key:match('_POS_%d$') then

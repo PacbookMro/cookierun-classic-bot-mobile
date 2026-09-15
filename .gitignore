@@ -6,3 +6,4 @@ __pycache__/
 templates/debug_*.png
 templates/debug_*.txt
 templates/temp_card_*.png
+window-profile.txt
