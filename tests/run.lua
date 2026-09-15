@@ -29,6 +29,7 @@ function regionMethods:getScore() return 0.95 end
 function regionMethods:highlight() end
 function regionMethods:highlightOff() end
 function regionMethods:save(name) saves[#saves + 1] = name end
+function regionMethods:saveColor(name) saves[#saves + 1] = name end
 function regionMethods:exists(pattern, timeout)
     equal(timeout, 0, 'Detection must not block per template')
     assert(previous, 'Detection should reuse the scan snapshot')
@@ -240,7 +241,7 @@ test('stage scan shares a frame and honors map/list exclusions', function()
     reset(); visible['MAINMENU_1.png']=true; visible['RELIC_CLAIM_1.png']=true
     equal(detection.detect_stage({'RELIC_CLAIM','MAINMENU'},{RELIC_CLAIM=true}),'MAINMENU')
     equal(frame,1); equal(#searches,1); equal(previous,false)
-    equal(searches[1].region.w,190); equal(searches[1].region.h,75)
+    equal(searches[1].region.w,280); equal(searches[1].region.h,135)
     equal(detection.detect_stage(nil,{RELIC_CLAIM=true}),'MAINMENU')
     equal(detection.detect_stage({'RELIC_CLAIM'},{'RELIC_CLAIM'}),nil)
 end)
@@ -351,6 +352,113 @@ test('real bot recovery reaches run Play promptly when item label is outside old
     assert(firstTap and runTap and runTap-firstTap<7,'Wide recovery was too slow')
     equal(#clicks,2); equal(#saves,0)
 end)
+-- Synthetic controls based on the six supplied screens' geometry. These
+-- exercise live color sampling; they are not pixel replays of the screenshots.
+local function mockControls(scene)
+    snapshotColor=function() frame=frame+1 end
+    getColor=function(point)
+        assert(previous, 'Color samples must share the color frame')
+        local origin=screen.location(0,0)
+        local x,y=point:getX()-origin:getX(),point:getY()-origin:getY()
+        local r,g,b=20,35,80 -- dark blue background
+        if scene=='main' or scene=='dimmed' then
+            if x>=750 and x<=1160 and y>=600 and y<=696 then r,g,b=155,195,12 end
+            if x>=752 and x<=1160 and y>=508 and y<=586 then r,g,b=25,155,170 end
+        elseif scene=='items' or scene=='random' or scene=='rolling' or scene=='ready' then
+            if x>=700 and x<=1100 and y>=565 and y<=661 then r,g,b=155,195,12 end
+            if scene~='items' and x>=850 and x<=1040 and y>=249 and y<=325 then r,g,b=20,170,190 end
+        elseif scene=='multi' then
+            if x>=530 and x<=760 and y>=550 and y<=625 then r,g,b=155,195,12 end
+        end
+        if scene=='dimmed' then return r*0.45,g*0.45,b*0.45 end
+        return r,g,b
+    end
+end
+local function clearControls() getColor=nil; snapshotColor=nil end
+
+test('main-menu fallback recognizes Play plus tabs without a Friends template match', function()
+    reset(); screen.setup(); mockControls('main')
+    local stage,evidence=detection.detect_stage({'MAINMENU'})
+    equal(stage,'MAINMENU'); equal(evidence.source,'main-menu Play + cyan tabs')
+    equal(evidence.target:getX(),1115); equal(evidence.target:getY(),650)
+    equal(previous,false)
+    actions.start_game(evidence.target)
+    equal(clicks[1],evidence.target,'Use the verified logical target without another offset')
+    clearControls()
+end)
+test('purchase, random boost, multi-buy, rolling, and ready screens cannot trigger the main-menu fallback', function()
+    reset()
+    for _,scene in ipairs({'items','random','multi','rolling','ready','dimmed'}) do
+        mockControls(scene)
+        equal(detection.detect_stage({'MAINMENU'},nil,true),nil,scene)
+        equal(#clicks,0)
+    end
+    clearControls()
+end)
+test('main-menu fallback respects group scope and exclusions', function()
+    reset(); mockControls('main')
+    equal(detection.detect_stage({'PURCHASE_ITEM'},nil,true),nil)
+    equal(detection.detect_stage({'MAINMENU'},{MAINMENU=true},true),nil)
+    clearControls()
+end)
+test('color sampling tolerates two text/highlight samples per control, rejects weak evidence', function()
+    reset(); mockControls('main')
+    local original=getColor
+    local n=0
+    getColor=function(point)
+        n=n+1
+        if n==1 or n==2 or n==9 or n==10 then return 250,250,250 end
+        return original(point)
+    end
+    assert(require('main_menu').findPlay())
+    n=0
+    getColor=function(point)
+        n=n+1
+        if n<=3 then return 250,250,250 end
+        return original(point)
+    end
+    equal(require('main_menu').findPlay(),nil)
+    clearControls()
+end)
+test('color bridge errors release the snapshot and leave actionable diagnostics', function()
+    reset(); mockControls('main')
+    getColor=function() error('color bridge unavailable') end
+    equal(require('main_menu').findPlay(),nil)
+    equal(previous,false)
+    assert(require('main_menu').last_probe:find('color bridge unavailable',1,true))
+    clearControls()
+end)
+test('real bot clicks initial Play when Friends never matches, then reaches item Play', function()
+    reset(); screen.setup(); mockControls('main')
+    local originalClick=click
+    click=function(point)
+        originalClick(point)
+        if #clicks==1 then
+            equal(point:getX(),1115); equal(point:getY(),650)
+            mockControls('items')
+            visible['PURCHASE_ITEM_1.png']=true
+        else
+            equal(point:getX(),1055); equal(point:getY(),620)
+            error('MAINMENU_FALLBACK_COMPLETED')
+        end
+    end
+    fails(function() require('bot').main() end,'MAINMENU_FALLBACK_COMPLETED')
+    click=originalClick; clearControls()
+    equal(#clicks,2)
+end)
+test('main-menu fallback is rechecked after waiting before a tap', function()
+    reset(); mockControls('main')
+    local originalSleep=sleep
+    sleep=function(seconds)
+        originalSleep(seconds)
+        if seconds==5 then mockControls('multi') end
+        if now>1007 then error('CHANGED_SCREEN_CHECKED') end
+    end
+    fails(function() require('bot').main() end,'CHANGED_SCREEN_CHECKED')
+    sleep=originalSleep; clearControls()
+    equal(#clicks,0,'Do not use stale color evidence after a popup opens')
+end)
+
 test('simple bot completes two rounds, buys once, and waits until five minutes', function()
     reset(); dialogValues={use_random_boost=true}
     local originalDetect, originalClick=detection.detect_stage,click

@@ -2,22 +2,23 @@
 
 An Android [AnkuLua](https://ankulua.boards.net/thread/2/ankulua-introduction) bot based on [AnkuLua's Lua port](https://github.com/AnkuLua/cookierun-classic-bot), originally [max180643's Python bot](https://github.com/max180643/cookierun-classic-bot).
 
-**v1.1.0-mobile.2 is a phone-test build.** It fixes the first build's restricted search area and slow recovery after Play. Automated tests pass; the reported phone's post-Play screen has not yet been verified against this build.
+**v1.1.0-mobile.3 is a phone-test build focused on the first main-menu Play tap.** The tester reports that buff buying and clearing results work; this revision changes main-menu recognition and adds clearer diagnostics.
 
-## Updating from mobile.1
+## Updating from mobile.1 / mobile.2
 
-Extract the new release into a **fresh folder** and select its `main.lua` in AnkuLua. Do not mix versions or rely on a previous script selection.
+Extract the new release into a **fresh folder** and select its `main.lua`. Keep the screen settings that worked in mobile.2, including Legacy crop off for the wider game area.
 
-- Leave **Legacy: crop to centered 16:9** unchecked. The default search area now includes the game sides.
-- Set **Game hides Android navigation bar** to match the game. A temporarily visible system bar over the game does not necessarily mean the game has resized.
-- **Exclude camera cutout area** can be unchecked if the game actually draws into that area.
-- Run calibration on the main menu, then manually open the item/buff screen and run calibration there too. The log reports whether that screen was recognized.
+1. Run calibration on the first main menu. Expect `MAINMENU` in the log.
+2. Run again and **uncheck Calibration only**. The log should say **AUTOMATION**. Calibration deliberately makes no taps.
+3. Select your usual buff settings. The first main-menu Play should open the item/buff screen; the existing buying and result-clearing flow then continues.
 
-The first build could tap the main-menu Play button, then search forever in a small misplaced rectangle. Recovery now widens the search after three seconds and checks all stage types after ten seconds. If nothing matches for twenty seconds, it saves diagnostic files automatically. It does not blindly tap an unrecognized screen.
+The bot previously depended entirely on a small screenshot of the **Friends** tab before it would tap the first Play button. This build expands that tab's local search area and adds a fallback using the **green main-menu Play button plus the cyan Pet/Cookie/Treasure bar directly above it**. It samples both controls on one color frame, then rechecks the screen after waiting before tapping. A green Play button on the purchase screen is insufficient to trigger the fallback.
+
+When this fallback succeeds, the log says `MAINMENU recognized by Play button and cyan tabs`, followed by `Main-menu Play verified at logical=(...)` when tapped. Its color/layout thresholds are chosen for the supplied screenshots; actual phone confirmation is still required.
 
 ## Download and run
 
-1. Download `cookierun-classic-bot-mobile-v1.1.0-mobile.2.zip` from [Releases](https://github.com/PacbookMro/cookierun-classic-bot-mobile/releases).
+1. Download `cookierun-classic-bot-mobile-v1.1.0-mobile.3.zip` from [Releases](https://github.com/PacbookMro/cookierun-classic-bot-mobile/releases).
 2. Extract the entire ZIP into a writable folder on the phone. Keep every `.lua` file and `templates/` together. This is a script bundle, not an APK.
 3. Use **AnkuLua 8.2+** with its screen capture and tap service working. No Python, PC emulator, or phone-resolution change is needed.
 4. Open CookieRun in a **landscape game window**, on the main menu. Select the extracted `main.lua` in AnkuLua.
@@ -45,19 +46,17 @@ A manually specified game area can cover a landscape window of any aspect ratio;
 
 Stop and recalibrate after moving/resizing the window, changing fullscreen mode, rotating, or folding/unfolding the device. Running both apps concurrently does not itself give the bot the correct game-window coordinates.
 
-## If it still stops after Play
+## If the first Play still is not tapped
 
-The screenshot from the first test shows the main menu during calibration. It does not establish the item-screen layout or whether its bundled **Shapes** label still exists.
+First check that the log says **AUTOMATION**, rather than **CALIBRATION ONLY**. After twenty seconds without a recognized menu, share:
 
-If the updated bot remains stuck, share:
+- `templates/debug_unrecognized.png`: a color screenshot of the entire search area.
+- `templates/debug_unrecognized.txt`: the dimensions, last stage/tap, and main-menu color checks (`green Play n/8, cyan tabs n/8`).
+- The log around `MAINMENU` and `Play tapped`, plus a screenshot of the current screen with overlays dismissed.
 
-- `templates/debug_unrecognized.png` and `templates/debug_unrecognized.txt`, saved after twenty seconds without a menu match. They contain the full search area, window dimensions, last recognized stage, and last tap.
-- A full landscape screenshot **after the first Play tap**, with calibration highlights dismissed.
-- Phone model, AnkuLua version, fullscreen versus split-screen/pop-up mode, and whether the run actually started.
+The distinction matters: no recognized main menu is a detection failure; a logged tap that does not open the items screen needs touch-position/service investigation. If the first Play works, confirm the usual multi-buy and stage-clearing flow still completes.
 
-These diagnostics overwrite fixed filenames, so long runs cannot accumulate unlimited files. No recognized menu during active gameplay is normal: a diagnostic by itself does not mean the run failed, and the bot continues watching for results.
-
-A whole-area search can find a matching label that moved; it cannot identify missing or changed artwork, or infer every independently rearranged button. Those cases need updated templates or a device layout. Report them in an [issue](https://github.com/PacbookMro/cookierun-classic-bot-mobile/issues).
+Diagnostics overwrite fixed filenames so long runs cannot accumulate unlimited files. No recognized menu during active gameplay is normal; diagnostics do not stop the bot. A different theme, large UI rearrangement, or unusual window scaling can still require a device profile. Report results in an [issue](https://github.com/PacbookMro/cookierun-classic-bot-mobile/issues).
 
 ## Development
 

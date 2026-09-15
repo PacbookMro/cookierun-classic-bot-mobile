@@ -29,6 +29,8 @@ screen.setup({
     manual = screen_manual and {x = screen_x, y = screen_y, w = screen_width, h = screen_height} or nil,
 })
 
+print("CookieRun v1.1.0-mobile.3 | " .. (screen_preview and "CALIBRATION ONLY (no taps)" or "AUTOMATION"))
+
 if screen_preview then
     screen.preview()
     local detection = require("detection")

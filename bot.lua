@@ -192,12 +192,15 @@ local function main()
                         sleep(delay)
                     end
                     -- The screen may have changed during the wait.
-                    if detection.detect_stage({"MAINMENU"}, nil, true) == "MAINMENU" then
-                        actions.start_game()
+                    local ready, evidence = detection.detect_stage({"MAINMENU"}, nil, true)
+                    if ready == "MAINMENU" then
+                        actions.start_game(evidence and evidence.target)
                         round:prepare()
                         detection_group = "PRE_GAME"
                         recovery_state:detected(os.time())
                         print("Play tapped; looking for the item/buff screen.")
+                    else
+                        print("Main menu changed during the wait; checking the current screen again.")
                     end
                     last_stage = nil
                 end

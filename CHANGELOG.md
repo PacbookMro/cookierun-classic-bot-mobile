@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.1.0-mobile.3
+
+Target the initial main-menu Play, now reported as the remaining failure.
+
+- Expand the local Friends-tab search rectangle.
+- Add main-menu detection using both the green Play button and cyan Pet/Cookie/Treasure bar, independent of the Friends template.
+- Recheck the controls after waiting and use the verified logical Play target.
+- Save color diagnostics with sample counts; explicitly log calibration versus automation mode.
+- Preserve the existing buff buying and result-clearing flow.
+
+Automated checks use synthetic controls based on the supplied screenshots. Actual S20 FE verification of this build is pending.
+
 ## v1.1.0-mobile.2
 
 Follow-up to the first phone report: initial Play works, then detection stalls.

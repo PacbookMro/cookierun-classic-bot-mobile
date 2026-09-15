@@ -5,11 +5,11 @@ import hashlib
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "v1.1.0-mobile.2"
+VERSION = "v1.1.0-mobile.3"
 NAME = f"cookierun-classic-bot-mobile-{VERSION}"
 RUNTIME = (
     "main.lua", "actions.lua", "bot.lua", "config.lua", "cycle.lua",
-    "detection.lua", "diagnostics.lua", "screen.lua", "recovery.lua",
+    "detection.lua", "diagnostics.lua", "screen.lua", "recovery.lua", "main_menu.lua",
     "README.md", "CHANGELOG.md", "docs/PHONE_TEST.md", "docs/INVESTIGATION.md",
 )
 

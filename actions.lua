@@ -11,9 +11,16 @@ end
 
 local tap = screen.tap
 
-function actions.start_game()
+function actions.start_game(verifiedTarget)
     print("🏁 Starting the game...")
-    tap(config.START_BUTTON)
+    if verifiedTarget then
+        screen.last_action = string.format("Main-menu Play verified at logical=(%d,%d)",
+            verifiedTarget:getX(), verifiedTarget:getY())
+        print(screen.last_action)
+        click(verifiedTarget)
+    else
+        tap(config.START_BUTTON)
+    end
     randomSleep(0.8, 1.4)
 end
 

@@ -1,4 +1,15 @@
-# Phone test checklist — mobile.2
+# Phone test checklist — mobile.3
+
+## Focus for this build
+
+The tester supplied six screens and clarified that buying and result clearing work; the remaining failure is the first main-menu Play. Keep the working mobile.2 screen and buff settings. Extract mobile.3 into a new folder, select its main.lua, and uncheck Calibration only for automation.
+
+On the first main menu, the bot should recognize either the Friends tab or the combination of green Play and cyan Pet/Cookie/Treasure tabs. The fallback logs `MAINMENU recognized by Play button and cyan tabs`. It rechecks the main menu before tapping.
+
+Expected flow: main-menu Play → items → random boost → Multi → Multi-Buy → wait for chosen boost → run Play → stage/results → main menu. Buying and clearing logic are unchanged in this revision.
+
+If it still fails, distinguish **no MAINMENU recognition**, **recognition but no tap log**, and **tap logged but nothing happens**. Send the color diagnostic PNG and text report. The report now includes counts out of eight for the sampled green button and cyan tabs.
+
 
 ## Calibration
 
@@ -30,4 +41,4 @@ Share those two files, a full screenshot after the initial Play tap with overlay
 
 ## Validation limits
 
-The first phone report confirms the initial Play tap works but reports a later stall. It includes a 2400×1080 main-menu calibration screenshot. The post-Play screen was not supplied with that report. Automated tests simulate the original and wider layouts; this release still needs testing on the actual phone.
+The supplied six-screen flow was inspected visually. Automated tests use synthetic color/layout fixtures based on those screens; they are not captured-image replays. Tests check that the fallback works without a Friends template match, rejects the purchase/multi-buy layouts and dimmed controls, and rechecks after waiting before a tap. Actual S20 FE verification remains pending for mobile.3.

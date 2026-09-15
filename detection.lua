@@ -2,6 +2,7 @@
 local valueType = typeOf or type
 local config = require("config")
 local screen = require("screen")
+local main_menu = require("main_menu")
 local templateCache = {}
 
 local function getPattern(filename, wide)
@@ -82,6 +83,20 @@ local function detect_stage(stage_names, exclude, wide)
                         return stage_name
                     end
                 end
+            end
+        end
+    end
+    -- Only try the main-menu controls when this scan actually allows MAINMENU.
+    -- All ordinary stage matches retain priority over the color fallback.
+    if not excludeSet.MAINMENU then
+        for _, name in ipairs(stage_names) do
+            if name == "MAINMENU" then
+                local evidence = main_menu.findPlay()
+                if evidence then
+                    print("MAINMENU recognized by Play button and cyan tabs")
+                    return "MAINMENU", evidence
+                end
+                break
             end
         end
     end

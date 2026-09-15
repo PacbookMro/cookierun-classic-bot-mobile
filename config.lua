@@ -40,7 +40,8 @@ config.STAGE_GAME_SETTINGS_TEMPLATE = {"GAME_SETTINGS_1.png"}
 -- STAGE DETECTION REGIONS
 -- -------------------
 -- Format: {x1, y1, x2, y2}
-config.STAGE_MAINMENU_REGION = {154, 150, 344, 225}
+-- Allow mobile font/position differences around the Friends tab.
+config.STAGE_MAINMENU_REGION = {114, 120, 394, 255}
 config.STAGE_PURCHASE_ITEM_REGION = {474, 84, 602, 138}
 config.STAGE_GAME_START_REGION = {573, 265, 733, 427}
 config.STAGE_GAME_RELAY_REGION = {573, 265, 733, 427}

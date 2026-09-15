@@ -2,6 +2,18 @@
 
 Baseline: AnkuLua/cookierun-classic-bot commit `63186fa`.
 
+## mobile.3 follow-up: initial main-menu Play
+
+The latest report clarifies that buying and result clearing work, but the first main-menu Play is not clicked. Six screenshots show the intended flow. They narrow the issue to the MAINMENU step, although no runtime log was supplied to prove whether recognition or the touch action fails.
+
+MAINMENU recognition depended on one small `Friends` tab template. The tap branch and its post-wait recheck both required that recognition. This revision increases the local Friends search rectangle and adds a fallback independent of the tab's text rendering: at least six of eight green Play-body samples and six of eight cyan menu-bar samples must match on the same color frame. The menu bar sits directly above main-menu Play and is absent from the supplied purchase/multi-buy screens. Sampling avoids the controls' white text. This is a targeted layout/color heuristic, not general OCR or a new template made from the user's screenshot.
+
+The fallback runs only when MAINMENU is allowed in the stage list, honors exclusions, and comes after regular stage matches. The bot rechecks after its wait, then uses the freshly verified logical target without applying the screen offset again. The purchasing and result-clearing algorithms are unchanged. Diagnostics now save color images and report sample counts, and startup explicitly logs CALIBRATION ONLY or AUTOMATION.
+
+Color sampling follows AnkuLua's [advanced methods](https://ankulua.boards.net/thread/13/advanced-methods#getColor) and [snapshotColor documentation](https://ankulua.boards.net/thread/7/settings#snapshotColor). Ordinary snapshot() frames are grayscale; snapshotColor() plus usePreviousSnap(true) ensures all RGB samples come from one frame. Snapshot reuse is cleared on both success and bridge error.
+
+Tests exercise template-free initial entry, rejection of the other supplied layouts using synthetic fixtures, dimmed controls, partial sample occlusion, snapshot cleanup, group/exclusion behavior, and a screen change during the wait. The tests do not establish actual match scores or color values from the attached image files, which are not available as local capture fixtures. Phone verification of this build remains pending.
+
 ## mobile.2 follow-up: first phone feedback
 
 The tester supplied a 2400×1080 main-menu screenshot with calibration active and reported a successful initial Play tap followed by a stall. The picture shows artwork beyond the cropped area. It does not show the subsequent item/buff screen, so a resolution-only diagnosis is not established.
