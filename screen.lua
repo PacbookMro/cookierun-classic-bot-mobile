@@ -101,7 +101,24 @@ function screen.tap(point)
     screen.last_action = string.format("Tap reference=(%d,%d), logical=(%d,%d)",
         point[1], point[2], location:getX(), location:getY())
     print(screen.last_action)
-    click(location)
+    screen.tapLogical(location)
+end
+
+-- Native matches/verified locations have already been scaled by AnkuLua.
+function screen.tapLogical(location, targetRadius)
+    local target = require("interaction").tap(location, screen.fullRegion(), targetRadius, screen.checkDisplay)
+    screen.last_action = string.format("Tap logical=(%d,%d)", target:getX(), target:getY())
+    print(screen.last_action)
+end
+
+function screen.tapMatch(match)
+    screen.checkDisplay()
+    if not require("interaction").enabled() then
+        click(match)
+    else
+        -- Stay well inside a matched button even when its image is small.
+        screen.tapLogical(match:getTarget(), math.max(0, math.floor(math.min(match:getW(), match:getH()) / 4)))
+    end
 end
 
 function screen.region(bounds)

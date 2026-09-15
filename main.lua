@@ -1,6 +1,9 @@
 -- Run with CookieRun visible, either fullscreen or in a landscape game pane.
 package.path = scriptPath() .. "?.lua;" .. package.path
 setImagePath(scriptPath() .. "templates/")
+-- A previous run may have been stopped without Lua cleanup being called.
+local brightness = require("brightness")
+brightness.restore()
 
 local screen = require("screen")
 dialogInit()
@@ -41,7 +44,7 @@ else
     })
 end
 
-print("CookieRun v1.1.0-mobile.4 | " .. (screen_preview and "CALIBRATION ONLY (no taps)" or "AUTOMATION"))
+print("CookieRun v1.1.0-mobile.5 | " .. (screen_preview and "CALIBRATION ONLY (no taps)" or "AUTOMATION"))
 
 if screen_preview then
     screen.preview()
@@ -63,4 +66,4 @@ function print(...)
 end
 
 math.randomseed(os.time())
-require("bot").main()
+brightness.run(function() require("bot").main() end)

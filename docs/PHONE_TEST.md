@@ -1,4 +1,4 @@
-# Phone test checklist — mobile.4
+# Phone test checklist — mobile.5
 
 ## MultiStar window test
 
@@ -9,14 +9,16 @@ Confirm a physical rotation stops automation and that reselecting a moved/resize
 
 ## Focus for this build
 
-The tester supplied six screens and clarified that buying and result clearing work; the remaining failure is the first main-menu Play. Keep the working mobile.2 screen and buff settings. Extract mobile.3 into a new folder, select its main.lua, and uncheck Calibration only for automation.
+The tester reports the previous screen and MultiStar issues resolved. Keep the working game rectangle. Extract mobile.5 into a new folder (restore any outstanding brightness from an older folder first). Select the new `main.lua` and calibrate before enabling automation.
 
-On the first main menu, the bot should recognize either the Friends tab or the combination of green Play and cyan Pet/Cookie/Treasure tabs. The fallback logs `MAINMENU recognized by Play button and cyan tabs`. It rechecks the main menu before tapping.
+1. Choose **Use owned only** for Fast Start and Relay. Confirm the lobby makes no purchases, but existing in-run item icons are used. With zero stock, confirm it continues to results without trying to buy.
+2. Choose **Buy one each round + use** only for items you want to purchase. Confirm a failed Play attempt does not buy again.
+3. Test timer ranges **1 / 2** and **6 / 8**. Check the logged interval once per round. A run exceeding the chosen interval must finish normally.
+4. Enable tap variation at the default 3-pixel radius, 40–100 ms press and 0–0.25 second extra pause. Check both Play buttons, boost buying and result clearing in fullscreen and the saved Samsung pane. Disable it if the device's native touch service does not register these presses reliably.
+5. Test dimming separately. Confirm the entire phone dims while screenshot recognition still works. Stop the script; if it stays dim, run `restore_brightness.lua` in the same folder and confirm the original brightness returns. Also test restoration by relaunching `main.lua` after a forced stop.
+6. Run two complete rounds with your preferred options. Leave dimming off when reading the lower app.
 
-Expected flow: main-menu Play → items → random boost → Multi → Multi-Buy → wait for chosen boost → run Play → stage/results → main menu. Buying and clearing logic are unchanged in this revision.
-
-If it still fails, distinguish **no MAINMENU recognition**, **recognition but no tap log**, and **tap logged but nothing happens**. Send the color diagnostic PNG and text report. The report now includes counts out of eight for the sampled green button and cyan tabs.
-
+See [the settings guide](QUALITY_OF_LIFE.md) for timer semantics, item modes and brightness recovery. Automatic buy-at-zero and bulk stock purchases are not part of this build.
 
 ## Calibration
 
@@ -30,7 +32,7 @@ If it still fails, distinguish **no MAINMENU recognition**, **recognition but no
 ## Two-round check
 
 1. Return to the main menu and uncheck Calibration only.
-2. Start with buffs unchecked to isolate screen transitions. Then test with Simple mode, one random boost, and a five-minute interval.
+2. Start with item modes Off and random boosts unchecked to isolate screen transitions. Then test with Simple mode, one random boost, and a 5 / 5 minute interval.
 3. Watch main menu Play → item screen Play → run → results → main menu.
 4. Confirm one purchase per round and a second round after at least five minutes from the first run Play. Longer runs finish normally.
 5. Stop using AnkuLua's Stop control. Recalibrate if the window moves, resizes, rotates, or switches fullscreen mode.
@@ -48,4 +50,4 @@ Share those two files, a full screenshot after the initial Play tap with overlay
 
 ## Validation limits
 
-The supplied six-screen flow was inspected visually. Automated tests use synthetic color/layout fixtures based on those screens; they are not captured-image replays. Tests check that the fallback works without a Friends template match, rejects the purchase/multi-buy layouts and dimmed controls, and rechecks after waiting before a tap. Actual S20 FE verification remains pending for mobile.3.
+The supplied six-screen flow was inspected visually. Automated tests use synthetic color/layout fixtures based on those screens; they are not captured-image replays. Tests check that the fallback works without a Friends template match, rejects the purchase/multi-buy layouts and dimmed controls, and rechecks after waiting before a tap. The user reports the previous screen/window fixes working on the phone. The mobile.5 options above still require physical testing.

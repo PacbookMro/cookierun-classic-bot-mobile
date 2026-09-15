@@ -635,6 +635,216 @@ test('simple bot completes two rounds, buys once, and waits until five minutes',
     assert(secondPlay-firstPlay>=300,'Second round started too soon')
 end)
 
+
+-- QoL tests exercise native API contracts and the real bot loop.
+local options = require('options')
+local interaction = require('interaction')
+test('options default to fixed five minutes, no purchases, no dimming or tap variation', function()
+    reset()
+    local settings=options.read()
+    equal(settings.round_interval,300); equal(settings.round_max_interval,300)
+    equal(settings.use_fast_start,false); equal(settings.buy_fast_start,false)
+    equal(settings.use_cookie_relay,false); equal(settings.buy_cookie_relay,false)
+    equal(settings.dim_percent,nil); equal(settings.interaction.enabled,false)
+end)
+test('options accept short and long intervals and convert press milliseconds', function()
+    reset(); dialogValues={round_minutes=1,round_max_minutes=7.5,vary_taps=true}
+    local settings=options.read()
+    equal(settings.round_interval,60); equal(settings.round_max_interval,450)
+    equal(settings.interaction.press_min,0.04); equal(settings.interaction.press_max,0.1)
+end)
+test('invalid timers, tap ranges, brightness and conflicting boost modes are rejected', function()
+    local invalid={
+        {{round_minutes=-1},'Round interval'}, {{round_max_minutes=4},'Round interval'},
+        {{round_max_minutes=math.huge},'Round interval'}, {{round_minutes=0/0},'Round interval'},
+        {{vary_taps=true,tap_radius=7},'Tap radius'}, {{vary_taps=true,tap_radius=1.5},'integer'},
+        {{vary_taps=true,press_min_ms=110,press_max_ms=40},'Press duration'},
+        {{vary_taps=true,press_max_ms=201},'Press duration'},
+        {{vary_taps=true,tap_pause=-1},'Extra tap pause'},
+        {{dim_screen=true,dim_percent=0},'Brightness percent'},
+        {{dim_screen=true,dim_percent=101},'Brightness percent'},
+        {{use_random_boost=true,use_desired_random_boost=true},'not both'},
+    }
+    for _, entry in ipairs(invalid) do
+        reset(); dialogValues=entry[1]; fails(options.read,entry[2])
+        equal(#clicks,0)
+    end
+end)
+for _, mode in ipairs({'Off','Use owned only (never buy)','Buy one each round + use'}) do
+    test('real bot item policy: '..mode..', including a failed Play retry', function()
+        reset(); dialogValues={fast_start_mode=mode,relay_mode=mode}
+        local original=detection.detect_stage
+        local stages={'PURCHASE_ITEM','PURCHASE_ITEM','GAME_START','GAME_RELAY','GAME_COMPLETE'}
+        local n=0
+        detection.detect_stage=function()
+            n=n+1
+            if not stages[n] then error('ITEM_POLICY_COMPLETE') end
+            return stages[n]
+        end
+        fails(function() require('bot').main() end,'ITEM_POLICY_COMPLETE')
+        detection.detect_stage=original
+        local purchaseCount,useCount,playCount=0,0,0
+        for _, target in ipairs(clicks) do
+            if target.x==925 then purchaseCount=purchaseCount+1 end
+            if target.x==655 then useCount=useCount+1 end
+            if target.x==895 then playCount=playCount+1 end
+        end
+        equal(purchaseCount,mode=='Buy one each round + use' and 2 or 0)
+        equal(useCount,mode=='Off' and 0 or 2)
+        equal(playCount,2)
+    end)
+end
+test('owned-only mode progresses without stock icons and makes no replacement purchase', function()
+    reset(); dialogValues={fast_start_mode='Use owned only (never buy)',relay_mode='Use owned only (never buy)'}
+    local original=detection.detect_stage
+    local n=0
+    detection.detect_stage=function()
+        n=n+1
+        if n==1 then return 'PURCHASE_ITEM' end
+        if n<5 then return nil end
+        if n==5 then return 'GAME_COMPLETE' end
+        error('NO_STOCK_COMPLETE')
+    end
+    fails(function() require('bot').main() end,'NO_STOCK_COMPLETE')
+    detection.detect_stage=original
+    equal(#clicks,2); equal(clicks[1].x,895); equal(clicks[2].x,460)
+end)
+test('random round interval is sampled once and retries never extend the deadline', function()
+    local original=math.random
+    local n=0
+    math.random=function() n=n+1; return n==1 and 0 or 1 end
+    local state=cycle.new(60,420)
+    equal(state:remaining(10),0)
+    state:started(100); equal(state:remaining(110),50)
+    state:started(130); equal(state:remaining(130),30); equal(n,1)
+    state:prepare(); state:started(600); equal(state:remaining(600),420); equal(n,2)
+    equal(state:remaining(1300),0,'Long runs can finish without a timer restart')
+    math.random=original
+end)
+test('optional taps use bounded down/wait/up and remain inside a portrait game pane', function()
+    reset(); realWidth,realHeight=1080,2400
+    screen.setup({window=true,manual={x=0,y=24,w=1080,h=700}})
+    local sequences={}
+    manualTouch=function(sequence) sequences[#sequences+1]=sequence end
+    interaction.configure({enabled=true,radius=6,press_min=0.04,press_max=0.1,pause=0.25})
+    local area=screen.fullRegion()
+    for i=1,100 do
+        screen.tapLogical(Location(0,0))
+        screen.tapLogical(Location(area:getW()-1,area:getH()-1))
+        actions.start_game(screen.location(955,650))
+        actions.play_game()
+    end
+    equal(#clicks,0,'Randomized presses must not send an extra native click')
+    for _, sequence in ipairs(sequences) do
+        equal(sequence[1].action,'touchDown'); equal(sequence[2].action,'wait'); equal(sequence[3].action,'touchUp')
+        equal(sequence[1].target,sequence[3].target)
+        assert(sequence[2].target>=0.04 and sequence[2].target<=0.1)
+        local p=sequence[1].target
+        assert(p.x>=0 and p.y>=0 and p.x<area:getW() and p.y<area:getH())
+    end
+    local main=screen.location(955,650); local lobby=screen.location(895,620)
+    for i=1,#sequences,4 do
+        assert(sequences[i][1].target.x<=6 and sequences[i][1].target.y<=6)
+        assert(math.abs(sequences[i+2][1].target.x-main.x)<=6)
+        assert(math.abs(sequences[i+2][1].target.y-main.y)<=6)
+        assert(math.abs(sequences[i+3][1].target.x-lobby.x)<=6)
+        assert(math.abs(sequences[i+3][1].target.y-lobby.y)<=6)
+    end
+    interaction.configure(); manualTouch=nil
+end)
+test('small matched buttons restrict variation and keep native match coordinates', function()
+    reset(); screen.setup()
+    local match=Region(500,300,8,8)
+    function match:getTarget() return Location(504,304) end
+    manualTouch=function(sequence)
+        local p=sequence[1].target
+        assert(math.abs(p.x-504)<=2 and math.abs(p.y-304)<=2)
+    end
+    interaction.configure({enabled=true,radius=6,press_min=0.04,press_max=0.1,pause=0})
+    for i=1,30 do screen.tapMatch(match) end
+    interaction.configure(); manualTouch=nil
+end)
+test('display rotation during randomized pause aborts before touch down', function()
+    reset(); realWidth,realHeight=1080,2400
+    screen.setup({window=true,manual={x=0,y=0,w=1080,h=650}})
+    local original=sleep
+    sleep=function(seconds) original(seconds); realWidth,realHeight=2400,1080 end
+    manualTouch=function() error('UNSAFE_TOUCH') end
+    interaction.configure({enabled=true,radius=3,press_min=0.04,press_max=0.1,pause=0.25})
+    fails(function() actions.play_game() end,'Display changed')
+    sleep=original; interaction.configure(); manualTouch=nil
+end)
+test('tap variation fails clearly when native manualTouch is unavailable', function()
+    fails(function() interaction.configure({enabled=true}) end,'manualTouch support')
+    interaction.configure()
+end)
+
+-- In-memory journal: no real brightness or user files are changed by tests.
+local brightness=require('brightness')
+local function withBrightness(fn)
+    local oldOpen,oldRemove=io.open,os.remove
+    local state={level=180,stored=nil,sets={}}
+    getBrightness=function() return state.level end
+    setBrightness=function(value)
+        if state.failSet then error('BRIGHTNESS_DENIED') end
+        state.level=value; state.sets[#state.sets+1]=value
+    end
+    io.open=function(path,mode)
+        if path~='./brightness-restore.txt' then return oldOpen(path,mode) end
+        if mode=='r' and not state.stored then return nil end
+        if mode=='w' and state.failWrite then return nil end
+        return {
+            read=function() return state.stored end,
+            write=function(_,value) state.stored=value; return true end,
+            close=function() return true end,
+        }
+    end
+    os.remove=function(path) equal(path,'./brightness-restore.txt'); state.stored=nil; return true end
+    local ok,err=pcall(fn,state)
+    io.open,os.remove=oldOpen,oldRemove
+    getBrightness,setBrightness=nil,nil
+    assert(ok,err)
+end
+test('brightness restores after normal completion and caught bot failure', function()
+    withBrightness(function(state)
+        brightness.run(function() brightness.dim(5); equal(state.level,13); assert(state.stored) end)
+        equal(state.level,180); equal(state.stored,nil)
+        fails(function() brightness.run(function() brightness.dim(5); error('BOT_FAILED') end) end,'BOT_FAILED')
+        equal(state.level,180); equal(state.stored,nil)
+    end)
+end)
+test('brightness journal survives forced stop and can be recovered on next startup', function()
+    withBrightness(function(state)
+        brightness.dim(5); equal(state.level,13)
+        package.loaded.brightness=nil
+        assert(require('brightness').restore())
+        equal(state.level,180); equal(state.stored,nil)
+    end)
+end)
+test('brightness never increases an already dim screen and supports original zero', function()
+    withBrightness(function(state)
+        state.level=0
+        brightness.dim(5); equal(state.level,0); equal(state.stored,'0\n')
+        assert(brightness.restore()); equal(state.level,0)
+    end)
+end)
+test('brightness journal failure prevents dimming, restoration failure retains original value', function()
+    withBrightness(function(state)
+        state.failWrite=true
+        fails(function() brightness.dim(5) end,'dimming cancelled'); equal(state.level,180)
+        state.failWrite=false
+        brightness.dim(5); state.failSet=true
+        fails(brightness.restore,'BRIGHTNESS_DENIED'); equal(state.stored,'180\n')
+        state.failSet=false; brightness.restore(); equal(state.level,180)
+    end)
+end)
+test('brightness restore rejects corrupt journal without setting the display', function()
+    withBrightness(function(state)
+        state.stored='not a number'
+        fails(brightness.restore,'Invalid brightness-restore'); equal(#state.sets,0)
+    end)
+end)
+
 os.time=realTime
 _G.type=type
 print=output

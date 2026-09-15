@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.1.0-mobile.5
+
+- Add minimum/maximum round intervals, sampled once per round without moving the deadline on Play retries. Long runs still finish normally.
+- Separate Fast Start/Relay use from purchases: Off, use owned only, or buy one each round. Skip missing in-run icons without restocking.
+- Add optional bounded tap-position, press-duration, and extra-pause variation across coordinate and matched-button taps.
+- Add whole-screen dimming, saved brightness restoration on caught errors/next startup, and a standalone restore helper for forced stops.
+- Preserve the user-confirmed working fullscreen and Samsung MultiStar setup.
+
+Stock-aware and batch buying are not included. Native tap timing and dimming require phone testing; immediate brightness restoration after a forced stop is not guaranteed.
+
 ## v1.1.0-mobile.4
 
 - Add Select game window: intercepted top-left/bottom-right corner taps and editable rectangle review.

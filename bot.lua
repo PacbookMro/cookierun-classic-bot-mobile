@@ -1,25 +1,9 @@
--- AnkuLua uses global type() for typing text; keep its binding intact.
-local valueType = typeOf or type
 local actions = require("actions")
 local config = require("config")
 local cycle = require("cycle")
 local detection = require("detection")
 local recovery = require("recovery")
 local diagnostics = require("diagnostics")
-
-local BOOST_CHOICES = {
-    { "Double Coins", config.BOOST_DOUBLE_COINS_TEMPLATE },
-    { "+15% Score Bonus", config.BOOST_15P_SCORE_BONUS_TEMPLATE },
-    { "-15% HP Drain", config.BOOST_M15P_HP_DRAIN_TEMPLATE },
-    { "Revive Once with 80 HP", config.BOOST_REVIVE_ONCE_WITH_80HP_TEMPLATE },
-    { "70% Crush Chance", config.BOOST_70P_CRUSH_CHANCE_TEMPLATE },
-    { "+17% Base Speed", config.BOOST_17P_BASE_SPEED_TEMPLATE },
-    { "Gold Coin Magic", config.BOOST_GOLD_COIN_MAGIC_TEMPLATE },
-    { "-30% Collision Damage", config.BOOST_M30P_COLLISION_DAMAGE_TEMPLATE },
-    { "+20% HP from Potions", config.BOOST_20P_HP_FROM_POTIONS_TEMPLATE },
-    { "Magnetic Aura", config.BOOST_MAGNETIC_AURA_TEMPLATE },
-    { "2 Pit Lifts", config.BOOST_2PIT_LIFTS_TEMPLATE },
-}
 
 local function random_uniform(min_val, max_val)
     return min_val + math.random() * (max_val - min_val)
@@ -68,77 +52,22 @@ local function get_detection_stage_names(group_name, exclude)
     return stage_names
 end
 
-local function prompt_user_options()
-    print("⚙️ --- Bot Options ---")
-
-    local boost_names = {}
-    for _, choice in ipairs(BOOST_CHOICES) do
-        table.insert(boost_names, choice[1])
-    end
-
-    dialogInit()
-    addCheckBox("simple_mode", "Simple buff + repeat (skip relics and friend lives)", true)
-    newRow()
-    addTextView("Minimum minutes between round starts (waits for results):")
-    addEditNumber("round_minutes", 5)
-    newRow()
-    addCheckBox("use_random_boost", "Buy one random boost each round", false)
-    newRow()
-    addCheckBox("use_fast_start", "⚡ Use Fast Start (buy + use)", false)
-    newRow()
-    addCheckBox("use_cookie_relay", "🍪 Use Cookie Relay (buy + use)", false)
-    newRow()
-    addCheckBox("use_desired_random_boost", "🎲 Use Desired Random Boost (buy + use)", false)
-    newRow()
-    addTextView("Desired boost: configure the same target in the game multi-buy screen first.")
-    --newRow()
-    addSpinner("selected_boost_name", boost_names, boost_names[1])
-    newRow()
-    addCheckBox("detect_relic", "🏺 Detect Relic (open + claim)", true)
-    newRow()
-    addCheckBox("send_friend_lives", "Receive/send friend lives (full mode only)", false)
-    dialogShow("CookieRun Classic Bot Options")
-    assert(valueType(round_minutes) == "number" and round_minutes >= 0 and round_minutes <= 1440,
-        "Round interval must be between 0 and 1440 minutes")
-    assert(not (use_random_boost and use_desired_random_boost),
-        "Choose either one random boost or desired boost, not both")
-
-    local chosen_boost = BOOST_CHOICES[1]
-    for _, choice in ipairs(BOOST_CHOICES) do
-        if choice[1] == selected_boost_name then
-            chosen_boost = choice
-            break
-        end
-    end
-
-    return {
-        simple_mode = simple_mode,
-        round_interval = round_minutes * 60,
-        send_friend_lives = not simple_mode and send_friend_lives,
-        use_random_boost = use_random_boost,
-        use_fast_start = use_fast_start,
-        use_cookie_relay = use_cookie_relay,
-        use_desired_random_boost = use_desired_random_boost,
-        desired_boost_template = chosen_boost[2],
-        desired_boost_name = use_desired_random_boost and chosen_boost[1] or nil,
-        detect_relic = not simple_mode and detect_relic,
-    }
-end
-
 local function main()
     print("🚀 CookieRun Classic Bot Started")
     print("Screen scaling configured; keep the game in landscape.")
 
     detection.load_templates()
 
-    local options = prompt_user_options()
+    local options = require("options").read()
+    require("interaction").configure(options.interaction)
+    if options.dim_percent then require("brightness").dim(options.dim_percent) end
     local relic_exclude = nil
     if not options.detect_relic then
         relic_exclude = { RELIC_COMPLETE = true, RELIC_CLAIM = true }
     end
 
     local last_stage = nil
-    local round = cycle.new(options.round_interval)
+    local round = cycle.new(options.round_interval, options.round_max_interval)
     local detection_group = "PRE_GAME"
     --local detection_group = "IN_GAME"
     local recovery_state = recovery.new(os.time())
@@ -208,8 +137,8 @@ local function main()
             elseif stage == "PURCHASE_ITEM" then
                 print("🛒 Detected Stage: PURCHASE_ITEM")
                 if round:can_purchase() then
-                    if options.use_fast_start then actions.purchase_fast_start() end
-                    if options.use_cookie_relay then actions.purchase_cookie_relay() end
+                    if options.buy_fast_start then actions.purchase_fast_start() end
+                    if options.buy_cookie_relay then actions.purchase_cookie_relay() end
                     if options.use_random_boost then actions.purchase_random_boost() end
                     if options.use_desired_random_boost then
                         actions.purchase_desired_random_boost(options.desired_boost_template, options.desired_boost_name)

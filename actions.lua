@@ -18,7 +18,7 @@ function actions.start_game(verifiedTarget)
         screen.last_action = string.format("Main-menu Play verified at logical=(%d,%d)",
             verifiedTarget:getX(), verifiedTarget:getY())
         print(screen.last_action)
-        click(verifiedTarget)
+        screen.tapLogical(verifiedTarget)
     else
         tap(config.START_BUTTON)
     end
@@ -265,7 +265,7 @@ function actions.handle_send_friend_life()
             for _, btn in ipairs(sendButtons) do
                 print("💌 Sending life to friend...")
                 screen.checkDisplay()
-                click(btn.match)
+                screen.tapMatch(btn.match)
                 randomSleep(0.8, 1.4)
                 print("💌 Confirming send life...")
                 tap(config.CONFIRM_SEND_LIFE_BUTTON)
