@@ -1,0 +1,7 @@
+.tools/
+.ankulua-*
+dist/
+__pycache__/
+.DS_Store
+templates/debug_*.png
+templates/temp_card_*.png

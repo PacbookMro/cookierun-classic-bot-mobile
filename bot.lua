@@ -1,31 +1,22 @@
+-- AnkuLua uses global type() for typing text; keep its binding intact.
+local valueType = typeOf or type
 local actions = require("actions")
 local config = require("config")
+local cycle = require("cycle")
 local detection = require("detection")
 
--- Utility to process/convert segmented string arguments or table elements
-function convertSegmentedString(val)
-    if type(val) == "table" then
-        local converted = {}
-        for k, v in pairs(val) do
-            converted[k] = convertSegmentedString(v)
-        end
-        return converted
-    end
-    return tostring(val)
-end
-
 local BOOST_CHOICES = {
-    { "Double Coins", BOOST_DOUBLE_COINS_TEMPLATE },
-    { "+15% Score Bonus", BOOST_15P_SCORE_BONUS_TEMPLATE },
-    { "-15% HP Drain", BOOST_M15P_HP_DRAIN_TEMPLATE },
-    { "Revive Once with 80 HP", BOOST_REVIVE_ONCE_WITH_80HP_TEMPLATE },
-    { "70% Crush Chance", BOOST_70P_CRUSH_CHANCE_TEMPLATE },
-    { "+17% Base Speed", BOOST_17P_BASE_SPEED_TEMPLATE },
-    { "Gold Coin Magic", BOOST_GOLD_COIN_MAGIC_TEMPLATE },
-    { "-30% Collision Damage", BOOST_M30P_COLLISION_DAMAGE_TEMPLATE },
-    { "+20% HP from Potions", BOOST_20P_HP_FROM_POTIONS_TEMPLATE },
-    { "Magnetic Aura", BOOST_MAGNETIC_AURA_TEMPLATE },
-    { "2 Pit Lifts", BOOST_2PIT_LIFTS_TEMPLATE },
+    { "Double Coins", config.BOOST_DOUBLE_COINS_TEMPLATE },
+    { "+15% Score Bonus", config.BOOST_15P_SCORE_BONUS_TEMPLATE },
+    { "-15% HP Drain", config.BOOST_M15P_HP_DRAIN_TEMPLATE },
+    { "Revive Once with 80 HP", config.BOOST_REVIVE_ONCE_WITH_80HP_TEMPLATE },
+    { "70% Crush Chance", config.BOOST_70P_CRUSH_CHANCE_TEMPLATE },
+    { "+17% Base Speed", config.BOOST_17P_BASE_SPEED_TEMPLATE },
+    { "Gold Coin Magic", config.BOOST_GOLD_COIN_MAGIC_TEMPLATE },
+    { "-30% Collision Damage", config.BOOST_M30P_COLLISION_DAMAGE_TEMPLATE },
+    { "+20% HP from Potions", config.BOOST_20P_HP_FROM_POTIONS_TEMPLATE },
+    { "Magnetic Aura", config.BOOST_MAGNETIC_AURA_TEMPLATE },
+    { "2 Pit Lifts", config.BOOST_2PIT_LIFTS_TEMPLATE },
 }
 
 local function random_uniform(min_val, max_val)
@@ -44,19 +35,19 @@ local function get_detection_stage_names(group_name, exclude)
     end
 
     if group_name ~= "IN_GAME" then
-        for _, stage_name in ipairs(DETECTION_ALWAYS_STAGES or {}) do
+        for _, stage_name in ipairs(config.DETECTION_ALWAYS_STAGES or {}) do
             add_stage(stage_name)
         end
     end
 
-    if DETECTION_GROUPS and DETECTION_GROUPS[group_name] then
-        for _, stage_name in ipairs(DETECTION_GROUPS[group_name]) do
+    if config.DETECTION_GROUPS and config.DETECTION_GROUPS[group_name] then
+        for _, stage_name in ipairs(config.DETECTION_GROUPS[group_name]) do
             add_stage(stage_name)
         end
     end
 
     if group_name == "IN_GAME" then
-        for _, stage_name in ipairs(DETECTION_ALWAYS_STAGES or {}) do
+        for _, stage_name in ipairs(config.DETECTION_ALWAYS_STAGES or {}) do
             --print("IN_GAME" .. stage_name)
             add_stage(stage_name)
         end
@@ -77,25 +68,38 @@ end
 
 local function prompt_user_options()
     print("⚙️ --- Bot Options ---")
-    
+
     local boost_names = {}
     for _, choice in ipairs(BOOST_CHOICES) do
         table.insert(boost_names, choice[1])
     end
 
     dialogInit()
+    addCheckBox("simple_mode", "Simple buff + repeat (skip relics and friend lives)", true)
+    newRow()
+    addTextView("Minimum minutes between round starts (waits for results):")
+    addEditNumber("round_minutes", 5)
+    newRow()
+    addCheckBox("use_random_boost", "Buy one random boost each round", false)
+    newRow()
     addCheckBox("use_fast_start", "⚡ Use Fast Start (buy + use)", false)
     newRow()
     addCheckBox("use_cookie_relay", "🍪 Use Cookie Relay (buy + use)", false)
     newRow()
     addCheckBox("use_desired_random_boost", "🎲 Use Desired Random Boost (buy + use)", false)
     newRow()
-    addTextView("Select Desired Random Boost:")
+    addTextView("Desired boost: configure the same target in the game multi-buy screen first.")
     --newRow()
     addSpinner("selected_boost_name", boost_names, boost_names[1])
     newRow()
     addCheckBox("detect_relic", "🏺 Detect Relic (open + claim)", true)
+    newRow()
+    addCheckBox("send_friend_lives", "Receive/send friend lives (full mode only)", false)
     dialogShow("CookieRun Classic Bot Options")
+    assert(valueType(round_minutes) == "number" and round_minutes >= 0 and round_minutes <= 1440,
+        "Round interval must be between 0 and 1440 minutes")
+    assert(not (use_random_boost and use_desired_random_boost),
+        "Choose either one random boost or desired boost, not both")
 
     local chosen_boost = BOOST_CHOICES[1]
     for _, choice in ipairs(BOOST_CHOICES) do
@@ -106,20 +110,22 @@ local function prompt_user_options()
     end
 
     return {
+        simple_mode = simple_mode,
+        round_interval = round_minutes * 60,
+        send_friend_lives = not simple_mode and send_friend_lives,
+        use_random_boost = use_random_boost,
         use_fast_start = use_fast_start,
         use_cookie_relay = use_cookie_relay,
         use_desired_random_boost = use_desired_random_boost,
         desired_boost_template = chosen_boost[2],
         desired_boost_name = use_desired_random_boost and chosen_boost[1] or nil,
-        detect_relic = detect_relic,
+        detect_relic = not simple_mode and detect_relic,
     }
 end
 
-detection = require("detection")
-config = require("config")
-function main()
+local function main()
     print("🚀 CookieRun Classic Bot Started")
-    print("⚠️ Screen must be 1280x720 resolution for the bot to work properly.")
+    print("Screen scaling configured; keep the game in landscape.")
 
     detection.load_templates()
 
@@ -130,22 +136,19 @@ function main()
     end
 
     local last_stage = nil
-    local is_first_game = true
+    local round = cycle.new(options.round_interval)
     local detection_group = "PRE_GAME"
     --local detection_group = "IN_GAME"
     local last_detected_time = os.time()
-    local session_start_time = os.time()
-    local session_reset_interval = random_uniform(SESSION_RESET_INTERVAL[1], SESSION_RESET_INTERVAL[2])
     local last_lives_time = os.time()
     local lives_interval = random_uniform(25 * 60, 35 * 60)
-    local pending_send_friend_life = false
 
     while true do
         local stage = detection.detect_stage(get_detection_stage_names(detection_group, relic_exclude))
         usePreviousSnap(false)
-        
+
         if stage == nil then
-            local recovery_interval = DETECTION_RECOVERY_SCAN_INTERVAL[detection_group] or 5
+            local recovery_interval = config.DETECTION_RECOVERY_SCAN_INTERVAL[detection_group] or 5
             if (os.time() - last_detected_time) >= recovery_interval then
                 stage = detection.detect_stage(nil, relic_exclude)
                 last_detected_time = os.time()
@@ -166,60 +169,41 @@ function main()
                 print("🎮 Detected Stage: MAINMENU")
                 print("⏳ Waiting 5 seconds for screen refresh...")
                 sleep(5)
-                
-                if pending_send_friend_life then
-                    print("💌 Sending friend lives after app reset...")
-                    actions.handle_send_friend_life()
-                    pending_send_friend_life = false
+
+                local lives_elapsed = os.time() - last_lives_time
+                if options.send_friend_lives and lives_elapsed >= lives_interval then
+                    actions.handle_quick_receive_and_send_lives()
                     last_lives_time = os.time()
+                    lives_interval = random_uniform(25 * 60, 35 * 60)
                     last_stage = nil
                 else
-                    local elapsed = os.time() - session_start_time
-                    if elapsed >= session_reset_interval then
-                        print(string.format("🔄 Session reset triggered after %.2fh — restarting app...", elapsed / 3600))
-                        actions.device_reset_app()
-                        sleep(5)
-                        actions.close_announcement_dialog()
-                        pending_send_friend_life = true
-                        session_start_time = os.time()
-                        session_reset_interval = random_uniform(SESSION_RESET_INTERVAL[1], SESSION_RESET_INTERVAL[2])
-                        last_lives_time = os.time()
-                        lives_interval = random_uniform(25 * 60, 35 * 60)
-                        detection_group = "PRE_GAME"
-                        last_stage = nil
-                        is_first_game = true
-                    else
-                        local lives_elapsed = os.time() - last_lives_time
-                        if lives_elapsed >= lives_interval then
-                            print(string.format("💌 ~30 min passed (%.1f min) — receiving and sending lives...", lives_elapsed / 60))
-                            actions.handle_quick_receive_and_send_lives()
-                            last_lives_time = os.time()
-                            lives_interval = random_uniform(25 * 60, 35 * 60)
-                            last_stage = nil
-                        elseif detection_group == "POST_GAME" then
-                            detection_group = "PRE_GAME"
-                            last_stage = nil
-                        else
-                            if not is_first_game then
-                                local delay = random_uniform(30, 60)
-                                print(string.format("⏳ Waiting for %.2f seconds before starting the next game...", delay))
-                                sleep(delay)
-                            end
-                            is_first_game = false
-                            actions.start_game()
-                            detection_group = "PRE_GAME"
-                        end
+                    local delay = round:remaining(os.time())
+                    if delay > 0 then
+                        print(string.format("Waiting %.0f seconds before the next round", delay))
+                        sleep(delay)
                     end
+                    -- The screen may have changed during the wait.
+                    if detection.detect_stage({"MAINMENU"}) == "MAINMENU" then
+                        actions.start_game()
+                        round:prepare()
+                        detection_group = "PRE_GAME"
+                    end
+                    last_stage = nil
                 end
 
             elseif stage == "PURCHASE_ITEM" then
                 print("🛒 Detected Stage: PURCHASE_ITEM")
-                if options.use_fast_start then actions.purchase_fast_start() end
-                if options.use_cookie_relay then actions.purchase_cookie_relay() end
-                if options.use_desired_random_boost then
-                    actions.purchase_desired_random_boost(options.desired_boost_template, options.desired_boost_name)
+                if round:can_purchase() then
+                    if options.use_fast_start then actions.purchase_fast_start() end
+                    if options.use_cookie_relay then actions.purchase_cookie_relay() end
+                    if options.use_random_boost then actions.purchase_random_boost() end
+                    if options.use_desired_random_boost then
+                        actions.purchase_desired_random_boost(options.desired_boost_template, options.desired_boost_name)
+                    end
+                    round:purchased()
                 end
                 actions.play_game()
+                round:started(os.time())
                 detection_group = "IN_GAME"
                 sleep(0.2)
                 last_stage = nil
@@ -322,16 +306,22 @@ function main()
 
             elseif stage == "CONNECTION_LOST" then
                 print("🔌 Detected Stage: CONNECTION_LOST")
-                actions.device_reset_app()
-                sleep(5)
-                actions.close_announcement_dialog()
-                session_start_time = os.time()
-                session_reset_interval = random_uniform(SESSION_RESET_INTERVAL[1], SESSION_RESET_INTERVAL[2])
+                actions.handle_connection_lost()
                 last_lives_time = os.time()
                 lives_interval = random_uniform(25 * 60, 35 * 60)
                 detection_group = "PRE_GAME"
                 last_stage = nil
-                is_first_game = true
+                round:prepare()
+
+            elseif stage == "PARTY_RUN" then
+                actions.close_party_run_mode()
+                detection_group = "PRE_GAME"
+                last_stage = nil
+
+            elseif stage == "GAME_SETTINGS" then
+                actions.close_game_settings()
+                detection_group = "PRE_GAME"
+                last_stage = nil
 
             elseif stage == "INACTIVE" then
                 print("💤 Detected Stage: INACTIVE")
@@ -343,7 +333,5 @@ function main()
         sleep(0.25)
     end
 end
---actions.handle_anti_bot(); scriptExit("end")
---m = parseRegion(STAGE_ANTI_BOT_REGION):exists("ANTI_BOT_1.png", 1)
---m:highlight(1)
-main()
+
+return {main = main}
