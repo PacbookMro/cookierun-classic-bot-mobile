@@ -33,7 +33,7 @@ local function detect_templates(template_files, region)
         local match = searchReg:exists(getPattern(filename), 0)
         if match then
             -- Preserve the native Match for clicks; don't rescale it manually.
-            table.insert(matches, {match = match, x = match:getX(), y = match:getY(),
+            table.insert(matches, {match = match, filename = filename, x = match:getX(), y = match:getY(),
                 w = match:getW(), h = match:getH()})
         end
     end

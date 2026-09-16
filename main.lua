@@ -44,7 +44,7 @@ else
     })
 end
 
-print("CookieRun v1.1.0-mobile.5 | " .. (screen_preview and "CALIBRATION ONLY (no taps)" or "AUTOMATION"))
+print("CookieRun v1.1.0-mobile.6 | " .. (screen_preview and "CALIBRATION ONLY (no taps)" or "AUTOMATION"))
 
 if screen_preview then
     screen.preview()

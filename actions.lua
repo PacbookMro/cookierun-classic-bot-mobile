@@ -55,8 +55,9 @@ function actions.purchase_random_boost()
     randomSleep(1.0, 2.0)
 end
 
-function actions.purchase_desired_random_boost(desired_template, desired_name)
+function actions.purchase_desired_random_boost(desired_template, desired_name, timeout, settle)
     print("🛒 Purchasing Desired Random Boost...")
+    assert(getColor and snapshotColor, "Multi-Buy completion requires AnkuLua color capture support")
     tap(config.RANDOM_BOOST_ITEM)
     randomSleep(0.8, 1.4)
     tap(config.MULTI_PURCHASE_BUTTON)
@@ -64,23 +65,7 @@ function actions.purchase_desired_random_boost(desired_template, desired_name)
     tap(config.MULTI_BUY_BUTTON)
     randomSleep(0.8, 1.4)
 
-    print(string.format("🔍 Waiting for desired boost to be detected: %s...", tostring(desired_name)))
-    local timeout = 30
-    local startTime = os.time()
-
-    while true do
-        if os.time() - startTime > timeout then
-            print(string.format("⏰ Timeout: Could not detect desired boost '%s' within %d seconds.", tostring(desired_name), timeout))
-            error("Desired boost not detected. Check calibration and the in-game multi-buy configuration before restarting.")
-        end
-
-        local matches = detection.detect_templates(desired_template, config.RANDOM_BOOST_REGION)
-        if #matches > 0 then
-            print(string.format("✅ Desired Boost detected: %s!", tostring(desired_name)))
-            break
-        end
-        sleep(0.5)
-    end
+    require("boost_wait").wait(desired_template, desired_name, timeout, settle)
 end
 
 function actions.using_fast_start()

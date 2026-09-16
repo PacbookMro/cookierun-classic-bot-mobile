@@ -141,7 +141,8 @@ local function main()
                     if options.buy_cookie_relay then actions.purchase_cookie_relay() end
                     if options.use_random_boost then actions.purchase_random_boost() end
                     if options.use_desired_random_boost then
-                        actions.purchase_desired_random_boost(options.desired_boost_template, options.desired_boost_name)
+                        actions.purchase_desired_random_boost(options.desired_boost_template, options.desired_boost_name,
+                            options.boost_timeout, options.boost_settle)
                     end
                     round:purchased()
                 end

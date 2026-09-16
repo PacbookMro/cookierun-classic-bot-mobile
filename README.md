@@ -2,7 +2,7 @@
 
 An Android [AnkuLua](https://ankulua.boards.net/thread/2/ankulua-introduction) bot based on [AnkuLua's Lua port](https://github.com/AnkuLua/cookierun-classic-bot), originally [max180643's Python bot](https://github.com/max180643/cookierun-classic-bot).
 
-**v1.1.0-mobile.5 adds configurable timer ranges, use-owned-only Fast Start/Relay, optional tap variation, and screen dimming.** The Samsung MultiStar setup and the two Play positions retain the working mobile.4 behavior. See the [settings guide](docs/QUALITY_OF_LIFE.md).
+**v1.1.0-mobile.6 improves Random Boost Multi-Buy completion.** It widens the banner search, waits up to a configurable 180 seconds by default, and checks that the rolling panel has closed. It can accept any completed boost selected in the game or verify a specific boost. Timer ranges, owned-only items, tap variation, dimming and Samsung MultiStar support remain available. See the [settings guide](docs/QUALITY_OF_LIFE.md).
 
 ## Samsung MultiStar: game on top, chat/manga below
 
@@ -17,7 +17,7 @@ For fullscreen use, choose **Full screen / manual** and keep the screen/buff set
 
 ## Download and run
 
-1. Download `cookierun-classic-bot-mobile-v1.1.0-mobile.5.zip` from [Releases](https://github.com/PacbookMro/cookierun-classic-bot-mobile/releases).
+1. Download `cookierun-classic-bot-mobile-v1.1.0-mobile.6.zip` from [Releases](https://github.com/PacbookMro/cookierun-classic-bot-mobile/releases).
 2. Extract the entire ZIP into a writable folder on the phone. Keep every `.lua` file and `templates/` together. This is a script bundle, not an APK.
 3. Use **AnkuLua 8.2+** with its screen capture and tap service working. No Python, PC emulator, or phone-resolution change is needed.
 4. Open CookieRun in a **landscape game window**, on the main menu. Select the extracted `main.lua` in AnkuLua.
@@ -37,7 +37,9 @@ For actual 16:9 letterboxed content, the optional Legacy crop reproduces the fir
 - The second options dialog adds optional tap-position/press-duration variation and screen dimming. Dimming affects the **whole phone**, including the lower app. After a forced stop, use `restore_brightness.lua` from the same folder if still dim. Full details and limits are in the [settings guide](docs/QUALITY_OF_LIFE.md).
 - Failed Play transitions can be retried without buying buffs again for that round.
 
-**Desired Random Boost** uses the game's multi-buy workflow. Configure the target in CookieRun's multi-buy screen first, then choose the same target in the bot. The dropdown does not configure the game. The bot stops if the selected boost is not detected within thirty seconds. Choose either one random boost or desired boost.
+**Desired Random Boost** uses the game's multi-buy workflow. Configure target(s) in CookieRun's Multi screen first. The bot sends Multi-Buy once; **the game rerolls**, while the bot watches. The new default **Any completed boost (game target)** accepts any of the 11 recognized boost banners after the rolling panel closes. Choose a specific boost only if you want the bot to verify that same target. The dropdown does not change game selections.
+
+Set the **maximum Multi-Buy wait** (default 180 seconds) and **initial animation delay** (default 5 seconds). The banner and ready controls must remain recognized for about three seconds before Play. If the wait expires, the bot saves diagnostics and stops without another purchase or Play tap. The game's own buying may still be running; check it before restarting. Choose either one random boost or desired/multi-buy mode.
 
 Turn Simple mode off to enable optional relic collection and friend-life handling. Normal results and connection/inactive dialogs are handled in both modes. The bot uses the in-game reload button; it does not force-stop and relaunch CookieRun.
 

@@ -2,6 +2,7 @@
 local valueType = typeOf or type
 local config = require("config")
 local options = {}
+local ANY_BOOST = "Any completed boost (game target)"
 
 local BOOST_CHOICES = {
     { "Double Coins", config.BOOST_DOUBLE_COINS_TEMPLATE },
@@ -31,7 +32,7 @@ end
 function options.read()
     print("⚙️ --- Bot Options ---")
 
-    local boost_names = {}
+    local boost_names = {ANY_BOOST}
     for _, choice in ipairs(BOOST_CHOICES) do
         table.insert(boost_names, choice[1])
     end
@@ -53,7 +54,7 @@ function options.read()
     newRow()
     addCheckBox("use_desired_random_boost", "🎲 Use Desired Random Boost (buy + use)", false)
     newRow()
-    addTextView("Desired boost: configure the same target in the game multi-buy screen first.")
+    addTextView("Game Multi-Buy chooses/rerolls boosts. Bot verifies the result:")
     --newRow()
     addSpinner("selected_boost_name", boost_names, boost_names[1])
     newRow()
@@ -66,12 +67,40 @@ function options.read()
     assert(not (use_random_boost and use_desired_random_boost),
         "Choose either one random boost or desired boost, not both")
 
-    local chosen_boost = BOOST_CHOICES[1]
+    local chosen_boost
+    if selected_boost_name == ANY_BOOST then
+        local files = {}
+        for _, group in ipairs(config.BOOST_TEMPLATES) do
+            for _, filename in ipairs(group) do files[#files+1]=filename end
+        end
+        chosen_boost = {ANY_BOOST, files}
+    end
     for _, choice in ipairs(BOOST_CHOICES) do
         if choice[1] == selected_boost_name then
             chosen_boost = choice
             break
         end
+    end
+    assert(chosen_boost, "Unknown boost verification choice")
+
+    local boost_timeout, boost_settle = 180, 5
+    if use_desired_random_boost then
+        dialogInit()
+        addTextView("Configure target(s) in the game's Multi screen first. The bot does not change them.")
+        newRow()
+        addTextView("Maximum Multi-Buy wait (seconds, 10-1800)")
+        addEditNumber("boost_wait_seconds", 180)
+        newRow()
+        addTextView("Initial animation delay (seconds, 0-60)")
+        addEditNumber("boost_settle_seconds", 5)
+        newRow()
+        addTextView("Waits for a stable banner and the rolling panel to close. Sends Multi-Buy once.")
+        dialogShow("Random boost completion")
+        range(boost_wait_seconds, boost_wait_seconds, 10, 1800, "Multi-Buy timeout")
+        range(boost_settle_seconds, boost_settle_seconds, 0, 60, "Initial boost delay")
+        assert(boost_settle_seconds+3 <= boost_wait_seconds,
+            "Multi-Buy timeout must allow the initial delay plus 3 seconds of stable recognition")
+        boost_timeout, boost_settle = boost_wait_seconds, boost_settle_seconds
     end
 
     dialogInit()
@@ -116,6 +145,8 @@ function options.read()
         use_cookie_relay = relay_mode ~= ITEM_MODES[1],
         buy_cookie_relay = relay_mode == ITEM_MODES[3],
         use_desired_random_boost = use_desired_random_boost,
+        boost_timeout = boost_timeout,
+        boost_settle = boost_settle,
         desired_boost_template = chosen_boost[2],
         desired_boost_name = use_desired_random_boost and chosen_boost[1] or nil,
         detect_relic = not simple_mode and detect_relic,

@@ -373,17 +373,42 @@ test('purchase actions use populated configuration', function()
     equal(clicks[1].x,235); equal(clicks[3].x,385); equal(clicks[5].x,535)
     for i=2,6,2 do equal(clicks[i].x,925); equal(clicks[i].y,295) end
 end)
-test('desired boost uses flat filenames and the configured region', function()
-    reset(); visible['BOOST_DOUBLE_COINS_1.png']=true
+local function mockBoostScreen(rolling)
+    snapshotColor=function() frame=frame+1 end
+    getColor=function(point)
+        assert(previous, 'Boost colors must reuse a color snapshot')
+        if point:getY()>=590 then return 140,190,20 end
+        if rolling then return 240,240,240 end
+        return 60,50,100
+    end
+end
+local function clearBoostScreen() getColor=nil; snapshotColor=nil end
+local function withoutBoostDiagnostics(fn)
+    local diagnostics=require('diagnostics')
+    local original=diagnostics.save_unrecognized
+    local reports={}
+    diagnostics.save_unrecognized=function(...) reports[#reports+1]={...} end
+    local ok,err=pcall(fn,reports)
+    diagnostics.save_unrecognized=original
+    assert(ok,err)
+end
+
+test('desired boost searches a wider banner area and waits for stable completion', function()
+    reset(); visible['BOOST_DOUBLE_COINS_1.png']=true; mockBoostScreen(false)
     actions.purchase_desired_random_boost(config.BOOST_DOUBLE_COINS_TEMPLATE,'Double Coins')
-    equal(#clicks,3); equal(#searches,1)
-    equal(searches[1].region.x,701); equal(searches[1].region.y,505)
-    equal(previous,false)
+    equal(#clicks,3); assert(#searches>=7)
+    equal(searches[1].region.x,650); equal(searches[1].region.y,480)
+    equal(previous,false); assert(now>=1008)
+    clearBoostScreen()
 end)
 test('desired boost timeout stops instead of tapping Play blindly', function()
-    reset()
-    fails(function() actions.purchase_desired_random_boost(config.BOOST_DOUBLE_COINS_TEMPLATE,'Double Coins') end,'Desired boost not detected')
-    equal(#clicks,3); assert(now>=1030)
+    reset(); mockBoostScreen(false)
+    withoutBoostDiagnostics(function(reports)
+        fails(function() actions.purchase_desired_random_boost(config.BOOST_DOUBLE_COINS_TEMPLATE,'Double Coins') end,'Desired boost not detected')
+        equal(#reports,1); assert(reports[1][1]:find('Double Coins',1,true))
+    end)
+    equal(#clicks,3); assert(now>=1180)
+    clearBoostScreen()
 end)
 test('stage scan shares a frame and honors map/list exclusions', function()
     reset(); visible['MAINMENU_1.png']=true; visible['RELIC_CLAIM_1.png']=true
@@ -843,6 +868,96 @@ test('brightness restore rejects corrupt journal without setting the display', f
         state.stored='not a number'
         fails(brightness.restore,'Invalid brightness-restore'); equal(#state.sets,0)
     end)
+end)
+
+test('boost completion options accept any game-selected target or a specific name', function()
+    reset(); dialogValues={use_desired_random_boost=true,boost_wait_seconds=300,boost_settle_seconds=10}
+    local settings=options.read()
+    equal(#settings.desired_boost_template,11)
+    equal(settings.desired_boost_name,'Any completed boost (game target)')
+    equal(settings.boost_timeout,300); equal(settings.boost_settle,10)
+    dialogValues.selected_boost_name='Magnetic Aura'
+    settings=options.read()
+    equal(#settings.desired_boost_template,1)
+    equal(settings.desired_boost_template[1],'BOOST_MAGNETIC_AURA_1.png')
+end)
+test('boost completion options reject impossible wait ranges', function()
+    for _, values in ipairs({
+        {use_desired_random_boost=true,boost_wait_seconds=9},
+        {use_desired_random_boost=true,boost_wait_seconds=1801},
+        {use_desired_random_boost=true,boost_wait_seconds=10,boost_settle_seconds=9},
+        {use_desired_random_boost=true,boost_settle_seconds=-1},
+    }) do
+        reset(); dialogValues=values
+        assert(not pcall(options.read)); equal(#clicks,0)
+    end
+end)
+test('boost banner that extends beyond the old crop matches on the wide phone canvas', function()
+    reset(); screen.setup(); mockBoostScreen(false)
+    -- 372-pixel original banner, displaced past the old reference x=1091 edge.
+    visible['BOOST_DOUBLE_COINS_1.png']={x=906,y=515,w=372,h=54}
+    equal(#detection.detect_templates(config.BOOST_DOUBLE_COINS_TEMPLATE,{701,505,1091,578}),0)
+    require('boost_wait').wait(config.BOOST_DOUBLE_COINS_TEMPLATE,'Double Coins',15,0)
+    equal(#clicks,0); clearBoostScreen()
+end)
+test('multi-buy may take over thirty seconds and is not sent again while waiting', function()
+    reset(); mockBoostScreen(false)
+    local original=sleep
+    sleep=function(seconds)
+        original(seconds)
+        if now>=1045 then visible['BOOST_DOUBLE_COINS_1.png']=true end
+    end
+    actions.purchase_desired_random_boost(config.BOOST_DOUBLE_COINS_TEMPLATE,'Double Coins',90,5)
+    sleep=original
+    assert(now>=1048); equal(#clicks,3)
+    clearBoostScreen()
+end)
+test('target banner during rolling cannot start Play until the panel closes and settles', function()
+    reset(); mockBoostScreen(true); visible['BOOST_DOUBLE_COINS_1.png']=true
+    local original=sleep
+    sleep=function(seconds)
+        original(seconds)
+        if now>=1040 then mockBoostScreen(false) end
+    end
+    require('boost_wait').wait(config.BOOST_DOUBLE_COINS_TEMPLATE,'Double Coins',60,5)
+    sleep=original
+    assert(now>=1043); equal(#clicks,0); clearBoostScreen()
+end)
+test('any boost accepts another target; specific verification never silently accepts it', function()
+    reset(); mockBoostScreen(false); visible['BOOST_MAGNETIC_AURA_1.png']=true
+    dialogValues={use_desired_random_boost=true}
+    local settings=options.read()
+    require('boost_wait').wait(settings.desired_boost_template,settings.desired_boost_name,10,0)
+    withoutBoostDiagnostics(function()
+        fails(function() require('boost_wait').wait(config.BOOST_DOUBLE_COINS_TEMPLATE,'Double Coins',10,0) end,'Desired boost not detected')
+    end)
+    equal(#clicks,0); clearBoostScreen()
+end)
+test('transient and changing banners reset the completion stability timer', function()
+    reset(); mockBoostScreen(false)
+    local original=sleep
+    local first='BOOST_DOUBLE_COINS_1.png'; local second='BOOST_MAGNETIC_AURA_1.png'
+    visible[first]=true
+    sleep=function(seconds)
+        original(seconds)
+        if now>=1001 then visible[first]=nil end
+        if now>=1002 then visible[second]=true end
+        if now>=1003 and now<1004 then visible[second]=nil end
+    end
+    require('boost_wait').wait({first,second},'Any',15,0)
+    sleep=original
+    assert(now>=1007); equal(#clicks,0); clearBoostScreen()
+end)
+test('missing Play or color API failure prevents boost completion and releases frame reuse', function()
+    reset(); mockBoostScreen(false)
+    getColor=function() return 20,20,20 end
+    equal(require('boost_wait').ready(),false); equal(previous,false)
+    getColor=function() error('COLOR_FAILED') end
+    local ready,detail=require('boost_wait').ready()
+    equal(ready,false); assert(detail:find('COLOR_FAILED',1,true)); equal(previous,false)
+    clearBoostScreen()
+    fails(function() actions.purchase_desired_random_boost(config.BOOST_DOUBLE_COINS_TEMPLATE,'Double Coins') end,'color capture support')
+    equal(#clicks,0)
 end)
 
 os.time=realTime

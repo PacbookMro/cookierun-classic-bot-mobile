@@ -1,4 +1,4 @@
-# Phone test checklist — mobile.5
+# Phone test checklist — mobile.6
 
 ## MultiStar window test
 
@@ -9,16 +9,18 @@ Confirm a physical rotation stops automation and that reselecting a moved/resize
 
 ## Focus for this build
 
-The tester reports the previous screen and MultiStar issues resolved. Keep the working game rectangle. Extract mobile.5 into a new folder (restore any outstanding brightness from an older folder first). Select the new `main.lua` and calibrate before enabling automation.
+Keep the fullscreen/MultiStar rectangle that worked. Extract mobile.6 into a fresh folder, select its main.lua and calibrate.
 
-1. Choose **Use owned only** for Fast Start and Relay. Confirm the lobby makes no purchases, but existing in-run item icons are used. With zero stock, confirm it continues to results without trying to buy.
-2. Choose **Buy one each round + use** only for items you want to purchase. Confirm a failed Play attempt does not buy again.
-3. Test timer ranges **1 / 2** and **6 / 8**. Check the logged interval once per round. A run exceeding the chosen interval must finish normally.
-4. Enable tap variation at the default 3-pixel radius, 40–100 ms press and 0–0.25 second extra pause. Check both Play buttons, boost buying and result clearing in fullscreen and the saved Samsung pane. Disable it if the device's native touch service does not register these presses reliably.
-5. Test dimming separately. Confirm the entire phone dims while screenshot recognition still works. Stop the script; if it stays dim, run `restore_brightness.lua` in the same folder and confirm the original brightness returns. Also test restoration by relaunching `main.lua` after a forced stop.
-6. Run two complete rounds with your preferred options. Leave dimming off when reading the lower app.
+1. In the game's Multi screen, select the boost(s) wanted. In the bot, enable Desired Random Boost and leave verification on **Any completed boost (game target)**. Start with **180 seconds maximum wait / 5 seconds initial delay**.
+2. Test Double Coins, then a different in-game target. Confirm the bot sends Multi-Buy once and does not tap Play while the rolling-history panel is visible, even when the target banner is already shown.
+3. Let a purchase run beyond 30 seconds. It should continue waiting, logging progress every ten seconds, then start after the panel closes and the matching banner/ready controls remain stable for about three seconds.
+4. Test specific verification by setting the same name in the game and bot. A different target must not be silently accepted in this mode.
+5. If the bot times out despite a visible final boost, share `templates/debug_unrecognized.png`, `.txt`, the selected verification name and wait settings. The report includes last matched banner and completion color counts. Check whether the game is still buying before restarting; stopping the bot does not stop game rerolls.
+6. Confirm ordinary one-random-boost mode, owned-only Fast Start/Relay, result clearing and a second round still work. With dimming on, timeout errors should restore brightness.
 
-See [the settings guide](QUALITY_OF_LIFE.md) for timer semantics, item modes and brightness recovery. Automatic buy-at-zero and bulk stock purchases are not part of this build.
+The banner crop was widened using the supplied screenshot layout. Automated tests simulate a banner extending past the old edge and a rolling panel that stays open for 40 seconds. They do not measure native image-match scores from the user's screenshots. Actual template matching and color checks need phone verification.
+
+Tap and timing variation remains optional. It is not a verified way to prevent CAPTCHA prompts.
 
 ## Calibration
 
@@ -50,4 +52,4 @@ Share those two files, a full screenshot after the initial Play tap with overlay
 
 ## Validation limits
 
-The supplied six-screen flow was inspected visually. Automated tests use synthetic color/layout fixtures based on those screens; they are not captured-image replays. Tests check that the fallback works without a Friends template match, rejects the purchase/multi-buy layouts and dimmed controls, and rechecks after waiting before a tap. The user reports the previous screen/window fixes working on the phone. The mobile.5 options above still require physical testing.
+The supplied six-screen flow was inspected visually. Automated tests use synthetic color/layout fixtures based on those screens; they are not captured-image replays. Tests check that the fallback works without a Friends template match, rejects the purchase/multi-buy layouts and dimmed controls, and rechecks after waiting before a tap. The user reports the previous screen/window fixes working on the phone. The mobile.6 options above still require physical testing.

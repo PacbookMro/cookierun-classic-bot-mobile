@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.1.0-mobile.6
+
+- Widen the Random Boost banner search so mobile banners are not clipped at the previous right edge.
+- Add configurable Multi-Buy maximum wait (180 seconds by default) and initial animation delay (5 seconds).
+- Default to verifying any completed game-selected boost; retain explicit single-target verification. The game performs rerolls and target selection remains in-game.
+- Require a stable matching banner, green Play, and a closed rolling-history panel before starting.
+- Log progress and save diagnostics on timeout without retrying the purchase.
+
+89 mocked API tests pass. Completion color checks are based on the supplied screenshots; physical phone verification is still required.
+
 ## v1.1.0-mobile.5
 
 - Add minimum/maximum round intervals, sampled once per round without moving the deadline on Play retries. Long runs still finish normally.

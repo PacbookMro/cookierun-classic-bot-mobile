@@ -79,7 +79,9 @@ config.CONFIRM_SEND_LIFE_TEMPLATE = {"CONFIRM_SEND_LIFE_1.png"}
 -- -------------------
 -- DETECTION REGION
 -- -------------------
-config.RANDOM_BOOST_REGION = {701, 505, 1091, 578}
+-- Mobile banners can extend past the old right edge (1091), preventing a
+-- full-template match even when the correct boost is visible.
+config.RANDOM_BOOST_REGION = {650, 480, 1195, 590}
 config.FRIEND_TOP_LEADERBOARD_REGION = {149, 272, 203, 574}
 config.FRIEND_BOTTOM_LEADERBOARD_REGION = {272, 545, 610, 625}
 config.FRIEND_SEND_LIFE_REGION = {608, 274, 721, 630}

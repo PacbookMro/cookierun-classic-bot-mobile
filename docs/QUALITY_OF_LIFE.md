@@ -25,11 +25,27 @@ Choose each item independently:
 
 For the requested no-spending setup, select **Use owned only** for both items. Buy a stock of items manually beforehand if desired. Automatic stock counting, buying only at zero, and batch restocking are not implemented. The existing templates do not include the inventory digits required by AnkuLua's `numberOCR`; a missing in-run icon is not used as evidence that a purchase is needed.
 
-Random Boost remains separate: leave both random-boost purchase boxes unchecked to avoid buying it. Existing owned boosts apply through the game's own behavior. The desired-boost multi-buy flow is unchanged: configure the game's target first, then select the same target in the bot. This multi-buy rerolls random boosts; it does not stock up Fast Start or Relay.
+Random Boost remains separate: leave both random-boost purchase boxes unchecked to avoid buying it. Existing owned boosts apply through the game's own behavior. Multi-buy rerolls random boosts; it does not stock up Fast Start or Relay.
+
+### Random Boost Multi-Buy completion
+
+The **game** runs the rerolls using the target(s) selected in its Multi screen. The bot clicks Multi-Buy once and then watches the result. It does not buy its way through the bot's dropdown list or configure the game's targets.
+
+- **Any completed boost (game target)** is the default verification choice. The bot searches the 11 bundled boost banner images, accepts a matching banner with ready controls, and waits for the rolling-history panel to disappear. It does not restrict the game to Double Coins.
+- Selecting **Double Coins** or another specific name restricts verification to that banner. Select the same target in the game; otherwise the bot will keep waiting and eventually stop, even if a different boost was purchased successfully.
+- **Maximum Multi-Buy wait:** default 180 seconds; allowed 10–1800.
+- **Initial animation delay:** default 5 seconds; allowed 0–60, leaving at least three seconds before the maximum wait.
+- After the initial delay, the bot checks twice per second. It requires the same accepted banner and ready controls for about three continuous seconds. An open rolling panel resets this stability check, even if the target banner is already visible.
+
+The banner search is wider than mobile.5 to include banners extending beyond the old right edge. It remains restricted to the lower-right banner area inside the game pane. Completion also requires a green Play button and absence of the pale rolling-history panel, based on the supplied screenshots. These color checks need testing on other game themes/layouts.
+
+Progress is logged every ten seconds. On timeout, the bot saves `templates/debug_unrecognized.png` and `.txt`, reporting the verification target, last matched banner, and color counts. It stops without retrying Multi-Buy or tapping Play. Stopping the bot does **not** cancel the game's own rerolling; check the game before restarting.
+
+**Buy one random boost each round** is separate from Multi-Buy. It makes one purchase and does not insist on Double Coins or any other specific result.
 
 ## Optional tap variation
 
-Enable **Vary tap positions, duration and extra pause** in the second options dialog:
+Enable **Vary tap positions, duration and extra pause** in the timing and brightness dialog:
 
 - **Radius:** default 3, allowed 0–6 pixels on the logical reference canvas. AnkuLua scales this with the game, including in split screen.
 - **Press duration:** default 40–100 milliseconds, allowed 20–200. Set equal values for a fixed duration.
@@ -37,7 +53,7 @@ Enable **Vary tap positions, duration and extra pause** in the second options di
 
 Targets stay close to the configured button center and within the game rectangle. Small image-matched buttons get a smaller radius. Both Play buttons use their own positions. Native matched coordinates are not scaled again. Presses use a single AnkuLua `manualTouch` sequence containing down, wait and up. If the API is unavailable, the script stops with an explanation.
 
-Turning this option off retains normal AnkuLua clicks. Existing short randomized waits between screen transitions remain. Drag gestures keep their existing paths and native timing. Variation does not guarantee that a game will treat automation as human input.
+Turning this option off retains normal AnkuLua clicks. Existing short randomized waits between screen transitions remain. Drag gestures keep their existing paths and native timing. Variation changes repeated tap coordinates and timing, but the cause of the game's CAPTCHA prompts has not been verified. It does not guarantee fewer prompts or prevent them. Round interval ranges only add a wait when the chosen interval has not already elapsed during gameplay.
 
 ## Screen dimming
 
