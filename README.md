@@ -2,7 +2,7 @@
 
 An Android [AnkuLua](https://ankulua.boards.net/thread/2/ankulua-introduction) bot based on [AnkuLua's Lua port](https://github.com/AnkuLua/cookierun-classic-bot), originally [max180643's Python bot](https://github.com/max180643/cookierun-classic-bot).
 
-**v1.1.0-mobile.6 improves Random Boost Multi-Buy completion.** It widens the banner search, waits up to a configurable 180 seconds by default, and checks that the rolling panel has closed. It can accept any completed boost selected in the game or verify a specific boost. Timer ranges, owned-only items, tap variation, dimming and Samsung MultiStar support remain available. See the [settings guide](docs/QUALITY_OF_LIFE.md).
+**v1.1.0-mobile.7 fixes settings clipped in portrait mode and starts the repeat delay at stage results.** Inputs now have separate rows in shorter full-screen settings pages. Result and reward screens clear while the delay counts down. MultiStar, boost completion, owned-only items, tap variation and dimming remain available. See the [settings guide](docs/QUALITY_OF_LIFE.md).
 
 ## Samsung MultiStar: game on top, chat/manga below
 
@@ -17,7 +17,7 @@ For fullscreen use, choose **Full screen / manual** and keep the screen/buff set
 
 ## Download and run
 
-1. Download `cookierun-classic-bot-mobile-v1.1.0-mobile.6.zip` from [Releases](https://github.com/PacbookMro/cookierun-classic-bot-mobile/releases).
+1. Download `cookierun-classic-bot-mobile-v1.1.0-mobile.7.zip` from [Releases](https://github.com/PacbookMro/cookierun-classic-bot-mobile/releases).
 2. Extract the entire ZIP into a writable folder on the phone. Keep every `.lua` file and `templates/` together. This is a script bundle, not an APK.
 3. Use **AnkuLua 8.2+** with its screen capture and tap service working. No Python, PC emulator, or phone-resolution change is needed.
 4. Open CookieRun in a **landscape game window**, on the main menu. Select the extracted `main.lua` in AnkuLua.
@@ -33,11 +33,11 @@ For actual 16:9 letterboxed content, the optional Legacy crop reproduces the fir
 - Leave **Simple buff + repeat** enabled to skip relic collection and friend-life chores.
 - Choose Fast Start and Cookie Relay independently: **Off**, **Use owned only (never buy)**, or **Buy one each round + use**. Owned-only skips absent icons without buying replacements. Automatic buy-at-zero and batch restocking are not implemented.
 - Enable **Buy one random boost each round** only if wanted. Purchases use in-game currency; all purchasing is disabled by default.
-- Set minimum/maximum minutes between round starts, e.g. **1 / 2** or **6 / 8**. The default **5 / 5** preserves the fixed five-minute minimum. Longer rounds finish normally. Set **0 / 0** to replay as soon as results are cleared.
-- The second options dialog adds optional tap-position/press-duration variation and screen dimming. Dimming affects the **whole phone**, including the lower app. After a forced stop, use `restore_brightness.lua` from the same folder if still dim. Full details and limits are in the [settings guide](docs/QUALITY_OF_LIFE.md).
+- On **Repeat delay after stage ends**, set minimum/maximum minutes **after results**, e.g. **0.1 / 0.3** for 6–18 seconds or **1 / 2** for 1–2 minutes. The default **5 / 5 now means five minutes after results**. Set **0 / 0** for no repeat delay. Result/reward clearing happens during the countdown.
+- Separate **Tap variation**, **Tap timing**, and **Screen brightness** pages expose the optional settings, including in portrait mode. Dimming affects the **whole phone**, including the lower app. After a forced stop, use `restore_brightness.lua` from the same folder if still dim. Full details and limits are in the [settings guide](docs/QUALITY_OF_LIFE.md).
 - Failed Play transitions can be retried without buying buffs again for that round.
 
-**Desired Random Boost** uses the game's multi-buy workflow. Configure target(s) in CookieRun's Multi screen first. The bot sends Multi-Buy once; **the game rerolls**, while the bot watches. The new default **Any completed boost (game target)** accepts any of the 11 recognized boost banners after the rolling panel closes. Choose a specific boost only if you want the bot to verify that same target. The dropdown does not change game selections.
+**Use game Multi-Buy each round** uses the game's multi-buy workflow. Configure target(s) in CookieRun's Multi screen first. The bot sends Multi-Buy once; **the game rerolls**, while the bot watches. The new default **Any completed boost (game target)** accepts any of the 11 recognized boost banners after the rolling panel closes. Choose a specific boost only if you want the bot to verify that same target. The dropdown does not change game selections.
 
 Set the **maximum Multi-Buy wait** (default 180 seconds) and **initial animation delay** (default 5 seconds). The banner and ready controls must remain recognized for about three seconds before Play. If the wait expires, the bot saves diagnostics and stops without another purchase or Play tap. The game's own buying may still be running; check it before restarting. Choose either one random boost or desired/multi-buy mode.
 

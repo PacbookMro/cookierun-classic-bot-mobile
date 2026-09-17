@@ -2,6 +2,7 @@
 local valueType = typeOf or type
 local config = require("config")
 local options = {}
+local ui = require("ui")
 local ANY_BOOST = "Any completed boost (game target)"
 
 local BOOST_CHOICES = {
@@ -38,34 +39,33 @@ function options.read()
     end
 
     dialogInit()
-    addCheckBox("simple_mode", "Simple buff + repeat (skip relics and friend lives)", true)
-    newRow()
-    addTextView("Minutes between round starts: minimum / maximum (0 = immediate)")
-    addEditNumber("round_minutes", 5)
-    addEditNumber("round_max_minutes", 5)
-    newRow()
-    addCheckBox("use_random_boost", "Buy one random boost each round", false)
-    newRow()
-    addTextView("Fast Start:")
-    addSpinner("fast_start_mode", ITEM_MODES, ITEM_MODES[1])
-    newRow()
-    addTextView("Cookie Relay:")
-    addSpinner("relay_mode", ITEM_MODES, ITEM_MODES[1])
-    newRow()
-    addCheckBox("use_desired_random_boost", "🎲 Use Desired Random Boost (buy + use)", false)
-    newRow()
-    addTextView("Game Multi-Buy chooses/rerolls boosts. Bot verifies the result:")
-    --newRow()
-    addSpinner("selected_boost_name", boost_names, boost_names[1])
-    newRow()
-    addCheckBox("detect_relic", "🏺 Detect Relic (open + claim)", true)
-    newRow()
-    addCheckBox("send_friend_lives", "Receive/send friend lives (full mode only)", false)
-    dialogShow("CookieRun Classic Bot Options")
-    range(round_minutes, round_max_minutes, 0, 1440, "Round interval (minutes)")
+    ui.text("Wait after results. 0 / 0 = no repeat delay.")
+    ui.number("Minimum wait (minutes)", "repeat_min_minutes", 5)
+    ui.number("Maximum wait (minutes)", "repeat_max_minutes", 5)
+    ui.show("Repeat delay after stage ends")
+    range(repeat_min_minutes, repeat_max_minutes, 0, 1440, "Repeat delay (minutes)")
+
+    dialogInit()
+    ui.check("simple_mode", "Simple mode (skip relics/friend lives)", true)
+    ui.choice("Fast Start", "fast_start_mode", ITEM_MODES, ITEM_MODES[1])
+    ui.choice("Cookie Relay", "relay_mode", ITEM_MODES, ITEM_MODES[1])
+    ui.show("Items and mode")
     assert(validMode(fast_start_mode) and validMode(relay_mode), "Invalid item mode")
+
+    dialogInit()
+    ui.check("use_random_boost", "Buy one random boost each round", false)
+    ui.check("use_desired_random_boost", "Use game Multi-Buy each round", false)
+    ui.choice("Multi-Buy result to verify", "selected_boost_name", boost_names, boost_names[1])
+    ui.show("Random boost")
     assert(not (use_random_boost and use_desired_random_boost),
         "Choose either one random boost or desired boost, not both")
+
+    if not simple_mode then
+        dialogInit()
+        ui.check("detect_relic", "Open and claim relics", true)
+        ui.check("send_friend_lives", "Receive/send friend lives", false)
+        ui.show("Optional chores")
+    end
 
     local chosen_boost
     if selected_boost_name == ANY_BOOST then
@@ -86,16 +86,10 @@ function options.read()
     local boost_timeout, boost_settle = 180, 5
     if use_desired_random_boost then
         dialogInit()
-        addTextView("Configure target(s) in the game's Multi screen first. The bot does not change them.")
-        newRow()
-        addTextView("Maximum Multi-Buy wait (seconds, 10-1800)")
-        addEditNumber("boost_wait_seconds", 180)
-        newRow()
-        addTextView("Initial animation delay (seconds, 0-60)")
-        addEditNumber("boost_settle_seconds", 5)
-        newRow()
-        addTextView("Waits for a stable banner and the rolling panel to close. Sends Multi-Buy once.")
-        dialogShow("Random boost completion")
+        ui.text("Select targets in the game's Multi screen first.")
+        ui.number("Maximum wait (seconds, 10-1800)", "boost_wait_seconds", 180)
+        ui.number("Initial delay (seconds, 0-60)", "boost_settle_seconds", 5)
+        ui.show("Multi-Buy completion")
         range(boost_wait_seconds, boost_wait_seconds, 10, 1800, "Multi-Buy timeout")
         range(boost_settle_seconds, boost_settle_seconds, 0, 60, "Initial boost delay")
         assert(boost_settle_seconds+3 <= boost_wait_seconds,
@@ -104,37 +98,32 @@ function options.read()
     end
 
     dialogInit()
-    addCheckBox("vary_taps", "Vary tap positions, duration and extra pause", false)
-    newRow()
-    addTextView("Tap radius: 0-6 pixels at reference resolution")
-    addEditNumber("tap_radius", 3)
-    newRow()
-    addTextView("Press duration in milliseconds: minimum / maximum")
-    addEditNumber("press_min_ms", 40)
-    addEditNumber("press_max_ms", 100)
-    newRow()
-    addTextView("Maximum extra pause before each tap (seconds)")
-    addEditNumber("tap_pause", 0.25)
-    newRow()
-    addCheckBox("dim_screen", "Dim the entire phone screen while running", false)
-    newRow()
-    addTextView("Brightness percent (1-100; trial has a time limit)")
-    addEditNumber("dim_percent", 5)
-    newRow()
-    addTextView("After a forced stop, run restore_brightness.lua if still dim.")
-    dialogShow("Timing, taps and brightness")
+    ui.check("vary_taps", "Vary tap positions and timing", false)
+    ui.number("Tap radius (0-6 reference pixels)", "tap_radius", 3)
+    ui.show("Tap variation")
     if vary_taps then
         range(tap_radius, tap_radius, 0, 6, "Tap radius")
         assert(tap_radius == math.floor(tap_radius), "Tap radius must be an integer")
+        dialogInit()
+        ui.number("Minimum press (milliseconds)", "press_min_ms", 40)
+        ui.number("Maximum press (milliseconds)", "press_max_ms", 100)
+        ui.number("Maximum extra pause (seconds)", "tap_pause", 0.25)
+        ui.show("Tap timing")
         range(press_min_ms, press_max_ms, 20, 200, "Press duration (milliseconds)")
         range(tap_pause, tap_pause, 0, 2, "Extra tap pause (seconds)")
     end
+
+    dialogInit()
+    ui.check("dim_screen", "Dim entire phone while running", false)
+    ui.number("Brightness (1-100 percent)", "dim_percent", 5)
+    ui.text("If left dim after Stop, run restore_brightness.lua.")
+    ui.show("Screen brightness")
     if dim_screen then range(dim_percent, dim_percent, 1, 100, "Brightness percent") end
 
     return {
         simple_mode = simple_mode,
-        round_interval = round_minutes * 60,
-        round_max_interval = round_max_minutes * 60,
+        round_interval = repeat_min_minutes * 60,
+        round_max_interval = repeat_max_minutes * 60,
         interaction = vary_taps and {enabled=true, radius=tap_radius, press_min=press_min_ms/1000,
             press_max=press_max_ms/1000, pause=tap_pause} or {enabled=false},
         dim_percent = dim_screen and dim_percent or nil,

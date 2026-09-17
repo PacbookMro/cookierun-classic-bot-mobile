@@ -2,18 +2,31 @@
 
 These options appear after screen setup when **Calibration only** is unchecked. Keep your working fullscreen or Samsung MultiStar window settings.
 
-## Round timer
+## Portrait-friendly settings
 
-Set the minimum and maximum **minutes between round starts**. Decimals are accepted; both values must be between 0 and 1440, with maximum at least minimum.
+Settings use AnkuLua's native full-screen dialogs, with one control per row and labels above number inputs and dropdowns. Pages are separated into repeat delay, items, random boost, optional chores, boost completion, tap variation/timing, and brightness. Only relevant pages are shown. Scroll vertically if needed with a large Android font or the keyboard open.
 
-| Minimum | Maximum | Behavior |
+**Select game window** and **Reuse saved game window** skip the fullscreen/manual-only settings. Picking a rectangle has separate position and size review pages. The phone can stay portrait while the game runs in a landscape pane; this changes settings layout, not the working game-coordinate mapping.
+
+## Repeat delay after stage ends
+
+The first automation settings page is **Repeat delay after stage ends**. Set the minimum and maximum **wait in minutes after results are detected**. Decimals are accepted; both values must be between 0 and 1440, with maximum at least minimum. Each input has its own row.
+
+| Minimum | Maximum | Behavior after results |
 | --- | --- | --- |
-| 0 | 0 | Replay once results are cleared |
-| 1 | 2 | Choose a new 60–120 second minimum interval each round |
-| 5 | 5 | Fixed five-minute minimum, the previous default |
-| 6 | 8 | Choose a new 6–8 minute minimum interval each round |
+| 0 | 0 | Replay as soon as results/rewards are cleared |
+| 0.1 | 0.3 | Choose a random 6–18 second delay |
+| 1 | 2 | Choose a random 1–2 minute delay |
+| 5 | 5 | Wait five minutes (default) |
+| 6 | 8 | Choose a random 6–8 minute delay |
 
-The timer starts at the run's Play attempt. A failed Play retry does not restart it or trigger another purchase. The bot waits on the main menu if time remains, then checks the screen again before clicking. Menu transitions and purchases can make the actual interval longer. A six-minute run is never cut short by a two-minute setting; it finishes and clears results normally. This is not a delay added after every run.
+**Changed in mobile.7:** the previous timer measured from the start of the run. This timer begins when the bot first detects the Result screen. A long stage no longer uses up the repeat delay. Set these new fields when upgrading; the old start-interval preferences are not reused.
+
+The bot clears Result OK, Mystery Box Open all, and Confirm while the countdown runs. Repeated results/reward detections do not reset it. On the main menu, the bot waits only for the remaining time, then checks the screen again before opening the next lobby. Lobby purchases and normal transition waits can make the next run start later than the deadline. The same deadline applies if the game goes directly to the lobby.
+
+If the first result screen is missed, a recognized reward screen starts the delay. Returning to the main menu after an observed run is a final fallback. Starting the bot on the main menu does not add an initial repeat wait; starting on results does. There is no timer that interrupts or restarts an active stage.
+
+The log shows the configured range and the chosen delay at each stage end. Failed Play retries still do not buy items again for that round.
 
 ## Fast Start and Cookie Relay
 
@@ -45,7 +58,7 @@ Progress is logged every ten seconds. On timeout, the bot saves `templates/debug
 
 ## Optional tap variation
 
-Enable **Vary tap positions, duration and extra pause** in the timing and brightness dialog:
+Enable **Vary tap positions and timing** on the **Tap variation** page, then configure the **Tap timing** page:
 
 - **Radius:** default 3, allowed 0–6 pixels on the logical reference canvas. AnkuLua scales this with the game, including in split screen.
 - **Press duration:** default 40–100 milliseconds, allowed 20–200. Set equal values for a fixed duration.
@@ -53,11 +66,11 @@ Enable **Vary tap positions, duration and extra pause** in the timing and bright
 
 Targets stay close to the configured button center and within the game rectangle. Small image-matched buttons get a smaller radius. Both Play buttons use their own positions. Native matched coordinates are not scaled again. Presses use a single AnkuLua `manualTouch` sequence containing down, wait and up. If the API is unavailable, the script stops with an explanation.
 
-Turning this option off retains normal AnkuLua clicks. Existing short randomized waits between screen transitions remain. Drag gestures keep their existing paths and native timing. Variation changes repeated tap coordinates and timing, but the cause of the game's CAPTCHA prompts has not been verified. It does not guarantee fewer prompts or prevent them. Round interval ranges only add a wait when the chosen interval has not already elapsed during gameplay.
+Turning this option off retains normal AnkuLua clicks. Existing short randomized waits between screen transitions remain. Drag gestures keep their existing paths and native timing. Variation changes repeated tap coordinates and timing, but the cause of the game's CAPTCHA prompts has not been verified. It does not guarantee fewer prompts or prevent them. The repeat delay is sampled after results, so a long run no longer removes that pause. Time spent clearing rewards counts toward the delay.
 
 ## Screen dimming
 
-Enable **Dim the entire phone screen while running**, then choose 1–100 percent (default 5). This uses AnkuLua's 0–255 brightness API. A screen already below the requested level is left at its lower brightness. AnkuLua documents dimming as time-limited in its trial version.
+On the **Screen brightness** page, enable **Dim entire phone while running**, then choose 1–100 percent (default 5). This uses AnkuLua's 0–255 brightness API. A screen already below the requested level is left at its lower brightness. AnkuLua documents dimming as time-limited in its trial version.
 
 **Dimming affects both Samsung windows**, including chat/manga. Leave it disabled when you want to read the lower app comfortably.
 
@@ -66,6 +79,8 @@ Before dimming, the bot saves the original numeric brightness in `brightness-res
 A forced stop can terminate Lua before cleanup runs; immediate restoration cannot be guaranteed. If the screen remains dim, run **`restore_brightness.lua` from the same extracted folder**, or adjust Android brightness manually. The helper needs no game calibration and makes no game taps. Keep the old folder until you have restored brightness before upgrading. If you deliberately adjust brightness manually and do not want the saved value restored later, delete `brightness-restore.txt` from that folder.
 
 ## API references
+
+- [User interface methods: newRow and dialogShowFullScreen](https://ankulua.boards.net/thread/12/user-interface-methods)
 
 - [AnkuLua API quick reference](https://ankulua.boards.net/thread/181/api-quick-reference)
 - [Advanced methods: brightness and numberOCR](https://ankulua.boards.net/thread/13/advanced-methods)

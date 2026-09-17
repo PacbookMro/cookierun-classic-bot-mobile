@@ -1,4 +1,4 @@
-# Phone test checklist — mobile.6
+# Phone test checklist — mobile.7
 
 ## MultiStar window test
 
@@ -9,18 +9,19 @@ Confirm a physical rotation stops automation and that reselecting a moved/resize
 
 ## Focus for this build
 
-Keep the fullscreen/MultiStar rectangle that worked. Extract mobile.6 into a fresh folder, select its main.lua and calibrate.
+Keep the working fullscreen/MultiStar game rectangle. Extract mobile.7 into a fresh folder and select its main.lua. Restore any outstanding brightness from the older folder first.
 
-1. In the game's Multi screen, select the boost(s) wanted. In the bot, enable Desired Random Boost and leave verification on **Any completed boost (game target)**. Start with **180 seconds maximum wait / 5 seconds initial delay**.
-2. Test Double Coins, then a different in-game target. Confirm the bot sends Multi-Buy once and does not tap Play while the rolling-history panel is visible, even when the target banner is already shown.
-3. Let a purchase run beyond 30 seconds. It should continue waiting, logging progress every ten seconds, then start after the panel closes and the matching banner/ready controls remain stable for about three seconds.
-4. Test specific verification by setting the same name in the game and bot. A different target must not be silently accepted in this mode.
-5. If the bot times out despite a visible final boost, share `templates/debug_unrecognized.png`, `.txt`, the selected verification name and wait settings. The report includes last matched banner and completion color counts. Check whether the game is still buying before restarting; stopping the bot does not stop game rerolls.
-6. Confirm ordinary one-random-boost mode, owned-only Fast Start/Relay, result clearing and a second round still work. With dimming on, timeout errors should restore brightness.
+1. Keep the phone portrait with CookieRun in the top landscape pane. Test **Select game window** and **Reuse saved game window**. Their startup page should show the mode dropdown and calibration checkbox, without fullscreen/manual settings. Window review has separate position and size pages.
+2. Disable calibration for automation. The first bot options page should be **Repeat delay after stage ends**, with clearly visible **Minimum wait (minutes)** and **Maximum wait (minutes)** inputs below their labels. Enter **0.1 / 0.3** for a short test. Check the printed range is 0.10–0.30 minutes.
+3. Verify item/boost dropdowns and the radius, minimum/maximum press duration, extra-pause and brightness fields are accessible. Each control should have its own row. Check in landscape too; scroll vertically if needed.
+4. Finish a run. The timer should start at the first Result screen. The bot should clear Result OK, Mystery Box Open all and Confirm without waiting for the countdown. On the main menu, it should wait only for any remaining part of the chosen 6–18 second delay.
+5. Confirm that a slow/failed Result OK or repeated reward screen does not restart the timer. A run longer than the configured delay must still receive a fresh delay after results. The first run from the main menu should start without an initial repeat delay.
+6. Set **0 / 0** to verify immediate repeat after normal result-clearing/transition waits. Set **1 / 2** to verify a longer randomized wait after results.
+7. Confirm the existing Multi-Buy completion, owned-only items, result clearing and dimming still work. For Multi-Buy, choose **Use game Multi-Buy each round**, configure target(s) in the game and use **Any completed boost (game target)** unless verifying a specific target.
 
-The banner crop was widened using the supplied screenshot layout. Automated tests simulate a banner extending past the old edge and a rolling panel that stays open for 40 seconds. They do not measure native image-match scores from the user's screenshots. Actual template matching and color checks need phone verification.
+The old minimum-start-interval fields have been replaced with new after-results fields. Their default is **5 / 5 minutes**, now measured from results, so select the intended delay explicitly.
 
-Tap and timing variation remains optional. It is not a verified way to prevent CAPTCHA prompts.
+Automated tests check dialog rows and API selection, not Android-rendered pixels. Share a screenshot of any field still clipped, including orientation, font/display size and AnkuLua version.
 
 ## Calibration
 
@@ -34,9 +35,9 @@ Tap and timing variation remains optional. It is not a verified way to prevent C
 ## Two-round check
 
 1. Return to the main menu and uncheck Calibration only.
-2. Start with item modes Off and random boosts unchecked to isolate screen transitions. Then test with Simple mode, one random boost, and a 5 / 5 minute interval.
+2. Start with item modes Off and random boosts unchecked to isolate screen transitions. Then test with Simple mode, one random boost, and a 5 / 5 minute repeat delay.
 3. Watch main menu Play → item screen Play → run → results → main menu.
-4. Confirm one purchase per round and a second round after at least five minutes from the first run Play. Longer runs finish normally.
+4. Confirm one purchase per round and a second round after at least five minutes from the first detected Result screen. Longer runs also receive this delay after finishing.
 5. Stop using AnkuLua's Stop control. Recalibrate if the window moves, resizes, rotates, or switches fullscreen mode.
 
 ## If it gets lost
@@ -52,4 +53,4 @@ Share those two files, a full screenshot after the initial Play tap with overlay
 
 ## Validation limits
 
-The supplied six-screen flow was inspected visually. Automated tests use synthetic color/layout fixtures based on those screens; they are not captured-image replays. Tests check that the fallback works without a Friends template match, rejects the purchase/multi-buy layouts and dimmed controls, and rechecks after waiting before a tap. The user reports the previous screen/window fixes working on the phone. The mobile.6 options above still require physical testing.
+The supplied six-screen flow was inspected visually. Automated tests use synthetic color/layout fixtures based on those screens; they are not captured-image replays. Tests check that the fallback works without a Friends template match, rejects the purchase/multi-buy layouts and dimmed controls, and rechecks after waiting before a tap. The user reports the previous screen/window fixes working on the phone. The mobile.7 options above still require physical testing.

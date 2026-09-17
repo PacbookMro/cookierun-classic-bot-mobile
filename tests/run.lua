@@ -21,6 +21,7 @@ end
 local log, clicks, drags, patterns, searches, saves
 local appArea, viewport, frame, previous, visible, now, dialogValues
 local realWidth, realHeight, scriptAxis, scriptDimension
+local dialogs, dialogRows
 local regionMethods = {}
 function regionMethods:getX() return self.x end
 function regionMethods:getY() return self.y end
@@ -74,16 +75,30 @@ function click(target) clicks[#clicks+1]=target end
 function dragDrop(a,b) drags[#drags+1]={a,b} end
 function sleep(seconds) now=now+seconds end
 function scriptExit(message) error('EXIT:' .. message) end
-function dialogInit() end
-function newRow() end
-function addTextView() end
+function dialogInit() dialogRows={{}} end
+function newRow() dialogRows[#dialogRows+1]={} end
+local function widget(kind,name)
+    local row=dialogRows[#dialogRows]
+    row[#row+1]={kind=kind,name=name}
+end
+function addTextView(label) widget('label',label) end
 local function field(name, default)
     if dialogValues[name] ~= nil then _G[name] = dialogValues[name] else _G[name]=default end
 end
-function addCheckBox(name, _, default) field(name,default) end
-function addEditNumber(name, default) field(name,default) end
-function addSpinner(name, _, default) field(name,default) end
-function dialogShow() end
+function addCheckBox(name, _, default) widget('check',name); field(name,default) end
+function addEditNumber(name, default) widget('number',name); field(name,default) end
+function addSpinner(name, _, default) widget('spinner',name); field(name,default) end
+local function showDialog(title,full)
+    local nonempty=0
+    for _,row in ipairs(dialogRows) do
+        assert(#row<=1, 'Portrait controls must each have their own row: '..title)
+        if #row>0 then nonempty=nonempty+1 end
+    end
+    assert(nonempty<=6, 'Settings page is too dense: '..title)
+    dialogs[#dialogs+1]={title=title,full=full,rows=dialogRows}
+end
+function dialogShow(title) showDialog(title,false) end
+function dialogShowFullScreen(title) showDialog(title,true) end
 function scriptPath() return './' end
 function setImagePath(path) equal(path,'./templates/') end
 print = function() end
@@ -94,6 +109,7 @@ local function reset()
     appArea={x=0,y=0,w=2400,h=1080}; viewport=nil
     realWidth,realHeight=2400,1080
     frame,previous,visible,now,dialogValues=0,false,{},1000,{}
+    dialogs,dialogRows={},{{}}
     if package.loaded.screen then
         package.loaded.screen.setup({centered=true})
         log={}; viewport=nil
@@ -483,15 +499,18 @@ test('friend scroll stays inside the reference screen', function()
     equal(#drags,1)
     equal(drags[1][1].y,260); equal(drags[1][2].y,620)
 end)
-test('round timer is five minutes between Play attempts across rounds', function()
+test('repeat countdown starts at results, not Play, and is not reset by result retries', function()
     local state=cycle.new(300)
     equal(state:remaining(100),0); equal(state:can_purchase(),true)
     state:purchased(); state:started(100)
-    equal(state:can_purchase(),false); equal(state:remaining(280),120)
-    state:started(150); equal(state:remaining(280),120)
-    equal(state:remaining(500),0)
+    equal(state:can_purchase(),false); equal(state:remaining(280),0)
+    state:started(150); equal(state.last_start,100)
+    state:finished(500); equal(state:remaining(600),200)
+    state:finished(550); equal(state:remaining(600),200)
+    equal(state:remaining(900),0)
     state:prepare(); equal(state:can_purchase(),true)
-    state:purchased(); state:started(500); equal(state:remaining(600),200)
+    state:purchased(); state:started(900); equal(state:remaining(950),0)
+    state:finished(1200); equal(state:remaining(1250),250)
 end)
 test('bot module loads without starting or changing sleep/type', function()
     reset()
@@ -632,15 +651,16 @@ test('main-menu fallback is rechecked after waiting before a tap', function()
     equal(#clicks,0,'Do not use stale color evidence after a popup opens')
 end)
 
-test('simple bot completes two rounds, buys once, and waits until five minutes', function()
+test('simple bot waits five minutes after results and buys once per round', function()
     reset(); dialogValues={use_random_boost=true}
     local originalDetect, originalClick=detection.detect_stage,click
     local stage, playCount, buyCount='MAINMENU',0,0
-    local firstPlay, secondPlay
+    local firstPlay, secondPlay, resultAt
     detection.detect_stage=function(names)
         for _, name in ipairs(names or {}) do
             if name=='RELIC_CLAIM' then error('Simple mode should exclude relics') end
         end
+        if stage=='GAME_COMPLETE' and not resultAt then resultAt=math.floor(now) end
         return stage
     end
     click=function(point)
@@ -657,7 +677,8 @@ test('simple bot completes two rounds, buys once, and waits until five minutes',
     fails(function() require('bot').main() end,'END_TWO_ROUNDS')
     detection.detect_stage=originalDetect; click=originalClick
     equal(buyCount,2,'One purchase per round despite a failed Play')
-    assert(secondPlay-firstPlay>=300,'Second round started too soon')
+    assert(secondPlay-resultAt>=300,'Second round must wait five minutes after results')
+    assert(resultAt-firstPlay>=150)
 end)
 
 
@@ -673,15 +694,15 @@ test('options default to fixed five minutes, no purchases, no dimming or tap var
     equal(settings.dim_percent,nil); equal(settings.interaction.enabled,false)
 end)
 test('options accept short and long intervals and convert press milliseconds', function()
-    reset(); dialogValues={round_minutes=1,round_max_minutes=7.5,vary_taps=true}
+    reset(); dialogValues={repeat_min_minutes=1,repeat_max_minutes=7.5,vary_taps=true}
     local settings=options.read()
     equal(settings.round_interval,60); equal(settings.round_max_interval,450)
     equal(settings.interaction.press_min,0.04); equal(settings.interaction.press_max,0.1)
 end)
 test('invalid timers, tap ranges, brightness and conflicting boost modes are rejected', function()
     local invalid={
-        {{round_minutes=-1},'Round interval'}, {{round_max_minutes=4},'Round interval'},
-        {{round_max_minutes=math.huge},'Round interval'}, {{round_minutes=0/0},'Round interval'},
+        {{repeat_min_minutes=-1},'Repeat delay'}, {{repeat_max_minutes=4},'Repeat delay'},
+        {{repeat_max_minutes=math.huge},'Repeat delay'}, {{repeat_min_minutes=0/0},'Repeat delay'},
         {{vary_taps=true,tap_radius=7},'Tap radius'}, {{vary_taps=true,tap_radius=1.5},'integer'},
         {{vary_taps=true,press_min_ms=110,press_max_ms=40},'Press duration'},
         {{vary_taps=true,press_max_ms=201},'Press duration'},
@@ -734,16 +755,18 @@ test('owned-only mode progresses without stock icons and makes no replacement pu
     detection.detect_stage=original
     equal(#clicks,2); equal(clicks[1].x,895); equal(clicks[2].x,460)
 end)
-test('random round interval is sampled once and retries never extend the deadline', function()
+test('random repeat delay is sampled once per result and is independent of stage duration', function()
     local original=math.random
     local n=0
     math.random=function() n=n+1; return n==1 and 0 or 1 end
     local state=cycle.new(60,420)
-    equal(state:remaining(10),0)
-    state:started(100); equal(state:remaining(110),50)
-    state:started(130); equal(state:remaining(130),30); equal(n,1)
-    state:prepare(); state:started(600); equal(state:remaining(600),420); equal(n,2)
-    equal(state:remaining(1300),0,'Long runs can finish without a timer restart')
+    state:started(100); equal(n,0)
+    equal(state:remaining(800),0)
+    state:finished(900); equal(state:remaining(910),50); equal(n,1)
+    state:finished(930); equal(state:remaining(930),30); equal(n,1)
+    state:prepare(); state:started(1000); equal(n,1)
+    state:finished(1700); equal(state:remaining(1700),420); equal(n,2)
+    equal(state:remaining(2200),0)
     math.random=original
 end)
 test('optional taps use bounded down/wait/up and remain inside a portrait game pane', function()
@@ -958,6 +981,125 @@ test('missing Play or color API failure prevents boost completion and releases f
     clearBoostScreen()
     fails(function() actions.purchase_desired_random_boost(config.BOOST_DOUBLE_COINS_TEMPLATE,'Double Coins') end,'color capture support')
     equal(#clicks,0)
+end)
+
+test('startup menu has no repeat wait; missed results fall back to observed run returning', function()
+    local state=cycle.new(60,60)
+    state:returned(100); equal(state:remaining(100),0)
+    state:observed_run(); state:returned(500); equal(state:remaining(510),50)
+    state:returned(520); equal(state:remaining(530),30)
+    state:started(600); state:finished(900); equal(state:remaining(910),50)
+end)
+test('starting on results counts once and zero delay remains immediate', function()
+    local state=cycle.new(60)
+    state:finished(100); state:finished(130); equal(state:remaining(140),20)
+    local immediate=cycle.new(0)
+    immediate:finished(100); equal(immediate:remaining(100),0)
+end)
+test('repeat and tap settings use labeled full-width rows in both display orientations', function()
+    for _,size in ipairs({{1080,2400},{2400,1080}}) do
+        reset(); realWidth,realHeight=size[1],size[2]
+        dialogValues={simple_mode=false,use_desired_random_boost=true,vary_taps=true}
+        options.read()
+        equal(dialogs[1].title,'Repeat delay after stage ends')
+        local found={}
+        for _,page in ipairs(dialogs) do
+            equal(page.full,true)
+            for i,row in ipairs(page.rows) do
+                if row[1] and (row[1].kind=='number' or row[1].kind=='spinner') then
+                    assert(i>1 and page.rows[i-1][1].kind=='label','Input needs a separate label row')
+                    equal(#row,1); found[row[1].name]=page.title
+                end
+            end
+        end
+        equal(found.repeat_min_minutes,'Repeat delay after stage ends')
+        equal(found.repeat_max_minutes,'Repeat delay after stage ends')
+        equal(found.selected_boost_name,'Random boost')
+        equal(found.press_min_ms,'Tap timing'); equal(found.press_max_ms,'Tap timing')
+        equal(found.tap_pause,'Tap timing'); equal(found.dim_percent,'Screen brightness')
+    end
+end)
+test('portrait saved-window startup skips irrelevant fullscreen/manual settings', function()
+    reset(); realWidth,realHeight=1080,2400
+    dialogValues.screen_mode='Reuse saved game window'
+    local restore=fakeProfileIO('1 1080 2400 0 24 1080 700\n')
+    fails(function() dofile('main.lua') end,'EXIT:Calibration finished')
+    restore()
+    equal(#dialogs,1); equal(dialogs[1].full,true)
+    for _,row in ipairs(dialogs[1].rows) do
+        if row[1] then assert(row[1].name~='screen_width' and row[1].name~='screen_manual') end
+    end
+end)
+test('manual rectangle fields remain individually editable on a portrait display', function()
+    reset(); realWidth,realHeight=1080,2400; appArea={x=0,y=0,w=1080,h=2400}
+    dialogValues={screen_manual=true,screen_x=0,screen_y=24,screen_width=1080,screen_height=700}
+    fails(function() dofile('main.lua') end,'EXIT:Calibration finished')
+    equal(#dialogs,4); equal(dialogs[3].title,'Game rectangle: position')
+    equal(dialogs[4].title,'Game rectangle: size')
+    equal(viewport.y,24); equal(viewport.w,1080); equal(viewport.h,700); equal(#clicks,0)
+end)
+test('game-window review separates position and size fields without changing picked coordinates', function()
+    reset(); realWidth,realHeight=1080,2400
+    local points={Location(0,24),Location(1080,724)}
+    getTouchEvent=function() return 'click',table.remove(points,1) end
+    local restore=fakeProfileIO()
+    local rect=require('window_profile').select()
+    restore(); getTouchEvent=nil
+    equal(rect.y,24); equal(rect.h,700)
+    equal(dialogs[3].title,'Review game window: position')
+    equal(dialogs[4].title,'Review game window: size')
+    for _,page in ipairs(dialogs) do equal(page.full,true) end
+end)
+test('dialog helper falls back to ordinary dialog API when fullscreen dialogs are unavailable', function()
+    reset(); local original=dialogShowFullScreen; dialogShowFullScreen=nil
+    dialogInit(); require('ui').number('Minimum wait','ui_test_value',1); require('ui').show('Fallback')
+    dialogShowFullScreen=original
+    equal(dialogs[1].full,false); equal(ui_test_value,1)
+end)
+test('real bot clears result and both reward screens while repeat delay counts down', function()
+    reset(); dialogValues={repeat_min_minutes=1,repeat_max_minutes=1}
+    local originalDetect,originalClick=detection.detect_stage,click
+    local stage='GAME_COMPLETE'
+    local resultAt=math.floor(now)
+    local menuTap, rewardTaps, resultTaps=nil,0,0
+    detection.detect_stage=function() return stage end
+    click=function(point)
+        originalClick(point)
+        if stage=='GAME_COMPLETE' then
+            resultTaps=resultTaps+1
+            if resultTaps==2 then stage='MYSTERY_BOX' end
+        elseif stage=='MYSTERY_BOX' then
+            rewardTaps=rewardTaps+1
+            assert(now-resultAt<60,'Reward clearing should not block on the repeat delay')
+            if rewardTaps==2 then stage='MAINMENU' end
+        elseif stage=='MAINMENU' then menuTap=now; stage='PURCHASE_ITEM'
+        elseif stage=='PURCHASE_ITEM' then error('RESULT_REPEAT_COMPLETE') end
+    end
+    fails(function() require('bot').main() end,'RESULT_REPEAT_COMPLETE')
+    detection.detect_stage,click=originalDetect,originalClick
+    equal(resultTaps,2); equal(rewardTaps,2)
+    assert(menuTap-resultAt>=60 and menuTap-resultAt<62,'Result retries/reward screens must not reset the deadline')
+end)
+test('direct lobby after results also waits and rechecks before buying or playing', function()
+    reset(); dialogValues={repeat_min_minutes=1,repeat_max_minutes=1,use_random_boost=true}
+    local originalDetect,originalClick=detection.detect_stage,click
+    local stage='GAME_COMPLETE'; local resultAt=math.floor(now); local checked=false
+    detection.detect_stage=function(names)
+        if checked then error('LOBBY_RECHECKED') end
+        if stage=='PURCHASE_ITEM' and now-resultAt>=60 then
+            checked=true
+            return 'MAINMENU' -- A different screen appeared during the wait.
+        end
+        return stage
+    end
+    click=function(point)
+        originalClick(point)
+        if stage=='GAME_COMPLETE' then stage='PURCHASE_ITEM'
+        else error('STALE_LOBBY_TAP') end
+    end
+    fails(function() require('bot').main() end,'LOBBY_RECHECKED')
+    detection.detect_stage,click=originalDetect,originalClick
+    assert(checked); equal(#clicks,1)
 end)
 
 os.time=realTime

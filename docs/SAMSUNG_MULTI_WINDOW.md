@@ -49,3 +49,9 @@ A screenshot like the supplied example demonstrates the desired arrangement; it 
 If the outline includes chat or skips part of CookieRun, choose **Select game window** again. If the outline is correct but a stage is not recognized, share `templates/debug_unrecognized.png` and `.txt`. The PNG is cropped to the configured game pane; avoid capturing it with a wrong selection or an unrelated overlay covering the game.
 
 After extracting a new release into a fresh folder, select the game pane again. Saved profiles are deliberately not included in downloadable releases.
+
+## Portrait settings in mobile.7
+
+You can keep the phone portrait throughout setup. Select/reuse-window modes now skip fullscreen-only options. The bot uses native full-screen settings pages with one control per row; window coordinates have separate position and size review pages. This affects dialogs only, so reuse the game rectangle that already works.
+
+The dedicated **Repeat delay after stage ends** page takes minimum/maximum minutes after results. Use `0.1 / 0.3` for 6–18 seconds, or `0 / 0` to repeat immediately after result/reward clearing. The default `5 / 5` now means five minutes after results.

@@ -1,6 +1,7 @@
 -- Pick a landscape game pane inside a portrait (or landscape) display.
 -- Touches are intercepted by AnkuLua's getTouchEvent, not sent to either app.
 local profile = {}
+local ui = require("ui")
 local screen = require("screen")
 local FILE = "window-profile.txt"
 
@@ -18,8 +19,8 @@ end
 
 local function instruction(text)
     dialogInit()
-    addTextView(text)
-    dialogShow("Select CookieRun game window")
+    ui.text(text)
+    ui.show("Select CookieRun game window")
 end
 
 local function corner(text)
@@ -46,10 +47,13 @@ function profile.select()
     local rect = profile.validate({x=x1,y=y1,w=x2-x1,h=y2-y1},width,height)
     -- Allow exact corrections without requiring another pair of touches.
     dialogInit()
-    addTextView("Game rectangle in screenshot pixels: X, Y, width, height. Adjust if needed.")
-    newRow(); addEditNumber("window_pick_x",rect.x); addEditNumber("window_pick_y",rect.y)
-    newRow(); addEditNumber("window_pick_w",rect.w); addEditNumber("window_pick_h",rect.h)
-    dialogShow("Review game window")
+    ui.number("Left X (screenshot pixels)", "window_pick_x", rect.x)
+    ui.number("Top Y (screenshot pixels)", "window_pick_y", rect.y)
+    ui.show("Review game window: position")
+    dialogInit()
+    ui.number("Width (screenshot pixels)", "window_pick_w", rect.w)
+    ui.number("Height (screenshot pixels)", "window_pick_h", rect.h)
+    ui.show("Review game window: size")
     rect = profile.validate({x=window_pick_x,y=window_pick_y,w=window_pick_w,h=window_pick_h},width,height)
     currentW,currentH = displaySize()
     assert(currentW == width and currentH == height, "Display changed during review; select the window again.")

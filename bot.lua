@@ -59,6 +59,8 @@ local function main()
     detection.load_templates()
 
     local options = require("options").read()
+    print(string.format("Repeat delay: %.2f-%.2f minutes after stage results",
+        options.round_interval / 60, options.round_max_interval / 60))
     require("interaction").configure(options.interaction)
     if options.dim_percent then require("brightness").dim(options.dim_percent) end
     local relic_exclude = nil
@@ -95,6 +97,10 @@ local function main()
             recovery_state:detected(os.time())
             last_recognized_stage = stage
             print("Detected stage: " .. stage)
+            if stage == "GAME_COMPLETE" or stage == "MYSTERY_BOX"
+                or stage == "CONGRATULATIONS" or stage == "OVERTAKE_BREAK_SCORE" then
+                round:finished(os.time())
+            end
         end
 
         if stage == last_stage then
@@ -104,6 +110,7 @@ local function main()
             last_stage = stage
 
             if stage == "MAINMENU" then
+                round:returned(os.time())
                 print("🎮 Detected Stage: MAINMENU")
                 print("⏳ Waiting 5 seconds for screen refresh...")
                 sleep(5)
@@ -136,30 +143,41 @@ local function main()
 
             elseif stage == "PURCHASE_ITEM" then
                 print("🛒 Detected Stage: PURCHASE_ITEM")
-                if round:can_purchase() then
-                    if options.buy_fast_start then actions.purchase_fast_start() end
-                    if options.buy_cookie_relay then actions.purchase_cookie_relay() end
-                    if options.use_random_boost then actions.purchase_random_boost() end
-                    if options.use_desired_random_boost then
-                        actions.purchase_desired_random_boost(options.desired_boost_template, options.desired_boost_name,
-                            options.boost_timeout, options.boost_settle)
-                    end
-                    round:purchased()
+                local ready = true
+                local delay = round:remaining(os.time())
+                if delay > 0 then
+                    print(string.format("Waiting %.0f seconds after results before lobby actions", delay))
+                    sleep(delay)
+                    ready = detection.detect_stage({"PURCHASE_ITEM"}, nil, true) == "PURCHASE_ITEM"
                 end
-                actions.play_game()
-                round:started(os.time())
-                recovery_state:detected(os.time())
-                print("Run Play tapped; waiting for run/result screens. Quiet detection during a run is normal.")
-                detection_group = "IN_GAME"
-                sleep(0.2)
+                if ready then
+                    if round:can_purchase() then
+                        if options.buy_fast_start then actions.purchase_fast_start() end
+                        if options.buy_cookie_relay then actions.purchase_cookie_relay() end
+                        if options.use_random_boost then actions.purchase_random_boost() end
+                        if options.use_desired_random_boost then
+                            actions.purchase_desired_random_boost(options.desired_boost_template, options.desired_boost_name,
+                                options.boost_timeout, options.boost_settle)
+                        end
+                        round:purchased()
+                    end
+                    actions.play_game()
+                    round:started(os.time())
+                    recovery_state:detected(os.time())
+                    print("Run Play tapped; waiting for run/result screens. Quiet detection during a run is normal.")
+                    detection_group = "IN_GAME"
+                    sleep(0.2)
+                end
                 last_stage = nil
 
             elseif stage == "GAME_START" then
+                round:observed_run()
                 print("🏁 Detected Stage: GAME_START")
                 if options.use_fast_start then actions.using_fast_start() end
                 detection_group = "IN_GAME"
 
             elseif stage == "GAME_RELAY" then
+                round:observed_run()
                 print("🔄 Detected Stage: GAME_RELAY")
                 if options.use_cookie_relay then actions.using_cookie_relay() end
                 detection_group = "IN_GAME"

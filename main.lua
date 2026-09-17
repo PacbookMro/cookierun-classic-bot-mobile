@@ -6,30 +6,31 @@ local brightness = require("brightness")
 brightness.restore()
 
 local screen = require("screen")
+local ui = require("ui")
 dialogInit()
-addTextView("Where is CookieRun running?")
-newRow()
-addSpinner("screen_mode", {"Full screen / manual", "Select game window", "Reuse saved game window"}, "Full screen / manual")
-newRow()
-addTextView("Window modes use your selected pane. Settings below apply to fullscreen/manual mode.")
-newRow()
-addCheckBox("screen_immersive", "Game hides Android navigation bar", true)
-newRow()
-addCheckBox("screen_cutouts", "Exclude camera cutout area (uncheck if game draws there)", true)
-newRow()
-addCheckBox("screen_centered", "Legacy: crop to centered 16:9 (only for actual black bars)", false)
-newRow()
-addCheckBox("screen_manual", "Use manual game area (physical screenshot pixels)", false)
-newRow()
-addTextView("Manual X / Y / width / height (only used if checked):")
-newRow()
-addEditNumber("screen_x", 0)
-addEditNumber("screen_y", 0)
-addEditNumber("screen_width", 1920)
-addEditNumber("screen_height", 1080)
-newRow()
-addCheckBox("screen_preview", "Calibration only: highlight positions without tapping", true)
-dialogShow("CookieRun screen setup")
+ui.choice("Where is CookieRun running?", "screen_mode",
+    {"Full screen / manual", "Select game window", "Reuse saved game window"}, "Full screen / manual")
+ui.check("screen_preview", "Calibration only (no game taps)", true)
+ui.show("CookieRun screen setup")
+
+if screen_mode == "Full screen / manual" then
+    dialogInit()
+    ui.check("screen_immersive", "Game hides navigation bar", true)
+    ui.check("screen_cutouts", "Exclude camera cutout area", true)
+    ui.check("screen_centered", "Legacy 16:9 crop (actual black bars only)", false)
+    ui.check("screen_manual", "Enter game rectangle manually", false)
+    ui.show("Fullscreen options")
+    if screen_manual then
+        dialogInit()
+        ui.number("Left X (screenshot pixels)", "screen_x", 0)
+        ui.number("Top Y (screenshot pixels)", "screen_y", 0)
+        ui.show("Game rectangle: position")
+        dialogInit()
+        ui.number("Width (screenshot pixels)", "screen_width", 1920)
+        ui.number("Height (screenshot pixels)", "screen_height", 1080)
+        ui.show("Game rectangle: size")
+    end
+end
 
 if screen_mode == "Select game window" or screen_mode == "Reuse saved game window" then
     local profile = require("window_profile")
@@ -44,7 +45,7 @@ else
     })
 end
 
-print("CookieRun v1.1.0-mobile.6 | " .. (screen_preview and "CALIBRATION ONLY (no taps)" or "AUTOMATION"))
+print("CookieRun v1.1.0-mobile.7 | " .. (screen_preview and "CALIBRATION ONLY (no taps)" or "AUTOMATION"))
 
 if screen_preview then
     screen.preview()

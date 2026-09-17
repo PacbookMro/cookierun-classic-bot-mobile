@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.1.0-mobile.7
+
+- Fix horizontally clipped settings: put labels, number fields and dropdowns on separate rows in short native full-screen dialogs.
+- Give the repeat timer a dedicated first page; show fullscreen/manual options only in that mode and split window rectangle review into position/size pages.
+- Measure repeat delay from first result/reward detection instead of run Play. Clear results and rewards while it counts down; retries do not reset the deadline.
+- Wait out remaining time and recheck the screen before the next menu/lobby actions. Fall back to a run returning to the menu if results were missed.
+- Preserve working game-window coordinates and other mobile.6 features.
+
+The default 5 / 5 now means five minutes after results. Set the new fields explicitly when upgrading. 98 mocked API tests pass; native portrait/landscape rendering still needs phone testing.
+
 ## v1.1.0-mobile.6
 
 - Widen the Random Boost banner search so mobile banners are not clipped at the previous right edge.
